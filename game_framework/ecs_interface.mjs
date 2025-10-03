@@ -1,4 +1,4 @@
-import { createWorld, addEntity, addComponent, addComponents, query } from 'bitecs'
+import {addEntity, addComponent, query, set } from 'bitecs'
 import { z } from "zod";
 
 const tool_defs = {}
@@ -61,7 +61,7 @@ tool_defs.addComponent = {
     },
     run: construct_tool_run_function(async({game,eid,component_name})=>{
         const component = get_component_by_name(game,component_name)
-        addComponent(game.world, eid, component)
+    addComponent(game.world, eid, component)
         return `Added component '${component_name}' to entity ${eid}`
     })
 }
@@ -90,8 +90,8 @@ resource_defs.queryEntitiesWithComponents = {
     },
     run: construct_tool_run_function(async({game,component_names})=>{
         const components = component_names.map(name=>get_component_by_name(game,name))
-        const eids = query(game,components)
-        return `Entities with components [${component_names.join(", ")}]: ${eids.join(", ")}`
+        const eids = query(game.world, components)
+        return `Entities with components [${component_names.join(", ")}]: ${Array.from(eids).join(", ")}`
     })
 }
 

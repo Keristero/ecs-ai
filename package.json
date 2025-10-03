@@ -2,8 +2,9 @@
   "name": "mcp-test",
   "version": "1.0.0",
   "main": "main.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha tests/**/*.test.mjs"
   },
   "author": "",
   "license": "ISC",
@@ -12,5 +13,9 @@
     "@modelcontextprotocol/sdk": "^1.17.1",
     "bitecs": "github:NateTheGreatt/bitECS",
     "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "mocha": "^10.7.3",
+    "chai": "^5.1.1"
   }
 }

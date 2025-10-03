@@ -5,5 +5,8 @@ pnpm = "latest"
 [tasks.install]
 run = "pnpm install"
 
+[tasks.test]
+run = "pnpm test"
+
 [tasks.start]
 run = "node main.mjs"
