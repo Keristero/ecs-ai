@@ -1,0 +1,9 @@
+[tools]
+node = "latest"
+pnpm = "latest"
+
+[tasks.install]
+run = "pnpm install"
+
+[tasks.start]
+run = "node main.mjs"
