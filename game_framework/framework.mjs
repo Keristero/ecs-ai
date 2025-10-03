@@ -26,10 +26,12 @@ async function initialize_game(){
         world: {},
     }
 
-    let components_folder = path.resolve(env.game_logic_folder_path, 'components')
+    const baseGameLogicPath = process.env.GAME_LOGIC_FOLDER_PATH || env.game_logic_folder_path
+    let components_folder = path.resolve(baseGameLogicPath, 'components')
     const components = await _import_all_exports_from_directory(components_folder)
 
-    const {update} = await import(path.resolve(env.game_logic_folder_path, 'systems', 'update.mjs'))
+    const updateModulePath = path.resolve(baseGameLogicPath, 'systems', 'update.mjs')
+    const {update} = await import(updateModulePath)
     if(!update){
         throw new Error("Game framework expects /systems/update.mjs to export a function as 'update' for the main game update system")
     }else{

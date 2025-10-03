@@ -1,11 +1,9 @@
-import { defineComponent } from 'bitecs'
-
-export const Position = defineComponent({
+export const Position = {
     x: [],
     y: []
-})
+}
 
-export const Health = defineComponent({
+export const Health = {
     current: [],
     max: []
-})
+}
