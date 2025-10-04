@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { tool_defs, resource_defs } from "../game_framework/ecs_interface.mjs";
 import express from 'express';
-import {mcp_port,mcp_host} from "../environment.mjs";
+import { mcp_port, mcp_host } from "../environment.mjs";
 import Logger from "../logger.mjs";
 const logger = new Logger("MCP Server", 'cyan');
 
@@ -48,15 +48,21 @@ async function serve_mcp(game) {
         await server.connect(transport);
         await transport.handleRequest(req, res, req.body);
     });
+    const host = mcp_host || '0.0.0.0';
+    const parsedPort = Number.isFinite(mcp_port) ? mcp_port : Number.parseInt(mcp_port, 10);
+    const port = Number.isFinite(parsedPort) ? parsedPort : 6061;
 
-    const port = parseInt(mcp_port);
-    app.listen(port, () => {
-        logger.info(`Listening on port ${mcp_host}:${port}/mcp`);
-    }).on('error', error => {
-        logger.error(`Failed to host: ${error.message}`);
-        process.exit(1);
+    return await new Promise((resolve, reject) => {
+        const server = app
+            .listen(port, host, () => {
+                logger.info(`MCP listening on http://${host}:${port}/mcp`);
+                resolve({ app, server });
+            })
+            .on('error', (error) => {
+                logger.error(`Failed to host MCP server: ${error.message}`);
+                reject(error);
+            });
     });
-
 }
 
 export { serve_mcp };

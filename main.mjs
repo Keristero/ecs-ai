@@ -1,15 +1,38 @@
+import path from "path";
 import env from "./environment.mjs";
 import Logger from "./logger.mjs";
-import {serve_mcp} from "./mcp_server/mcp_server.mjs"
-import path from "path";
-const logger = new Logger("Main",'green');
+import { serve_mcp } from "./mcp_server/mcp_server.mjs";
+import { serve_api } from "./api/server.mjs";
 
-//dynamically import the game logic module
-const game = (await import(path.resolve(env.game_logic_folder_path, env.game_logic_script_name))).default
+const logger = new Logger("Main", 'green');
 
-//run the game update function as a test
-game.update(game)
+async function start() {
+	const modulePath = path.resolve(env.game_logic_folder_path, env.game_logic_script_name);
+	const game = (await import(modulePath)).default;
 
-await serve_mcp(game)
+	if (!game || typeof game.update !== 'function') {
+		throw new Error(`Game module at ${modulePath} must export a default object with an update function.`);
+	}
 
-logger.info('hello')
+	await Promise.resolve(game.update(game));
+
+	try {
+		const [mcpInfo, apiInfo] = await Promise.all([
+			serve_mcp(game),
+			serve_api(game)
+		]);
+
+		logger.info('Services started', {
+			mcp: mcpInfo?.server?.address?.(),
+			api: apiInfo?.server?.address?.()
+		});
+	} catch (error) {
+		logger.error('Failed to start services', error);
+		process.exit(1);
+	}
+}
+
+start().catch((error) => {
+	logger.error('Unhandled startup error', error);
+	process.exit(1);
+});

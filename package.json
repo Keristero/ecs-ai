@@ -1,9 +1,10 @@
 {
   "name": "mcp-test",
   "version": "1.0.0",
-  "main": "main.js",
+  "main": "main.mjs",
   "type": "module",
   "scripts": {
+    "start": "node main.mjs",
     "test": "mocha tests/**/*.test.mjs"
   },
   "author": "",
