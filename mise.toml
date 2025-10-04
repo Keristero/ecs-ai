@@ -1,6 +1,17 @@
 [tools]
 node = "latest"
 pnpm = "latest"
+ollama = "0.9.6"
+
+[env]
+GAME_LOGIC_FOLDER_PATH = "./examples/text_adventure_logic"
+GAME_LOGIC_SCRIPT_NAME = "game.mjs"
+OLLAMA_MODEL_NAME = "qwen3"
+OLLAMA_HOST = "localhost"
+OLLAMA_PORT = "6062"
+MCP_HOST = "localhost"
+MCP_PORT = "6061"
+API_PORT = "6060"
 
 [tasks.install]
 run = "pnpm install"
@@ -10,3 +21,7 @@ run = "pnpm test"
 
 [tasks.start]
 run = "node main.mjs"
+
+[tasks.ollama]
+description = "Run the Ollama server (no MCP bridge)"
+run = "ollama serve"
