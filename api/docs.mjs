@@ -1,7 +1,10 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import env from '../environment.mjs';
 import { tool_defs, resource_defs } from '../game_framework/ecs_interface.mjs';
 
-const docsHtml='<!doctype html><html lang="en"><head><meta charset="utf-8"><title>ECS API Docs</title><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head><body style="margin:0;background:#0f172a;color:#e2e8f0"><header style="padding:1rem 2rem;background:rgba(15,23,42,0.85);backdrop-filter:blur(12px)"><h1 style="margin:0;font-size:1.5rem">ECS API Documentation</h1></header><div id="swagger-ui" style="padding:1rem"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>window.ui=SwaggerUIBundle({url:"/docs/openapi.json",dom_id:"#swagger-ui"});</script></body></html>';
+const docsHtml = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'docs.html'), 'utf8');
 
 const describeInput=(schema)=>{
     const shapeFactory=schema?._def?.shape;

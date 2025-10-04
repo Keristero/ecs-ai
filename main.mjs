@@ -22,9 +22,15 @@ async function start() {
 			serve_api(game)
 		]);
 
+		const apiAddr = apiInfo?.server?.address?.();
+		const apiHost = apiAddr?.address === '::' ? '127.0.0.1' : apiAddr?.address ?? env.api_host;
+		const apiPort = apiAddr?.port ?? env.api_port;
+		const docsUrl = `http://${apiHost}:${apiPort}/docs`;
+
 		logger.info('Services started', {
 			mcp: mcpInfo?.server?.address?.(),
-			api: apiInfo?.server?.address?.()
+			api: apiAddr,
+			docs: docsUrl
 		});
 	} catch (error) {
 		logger.error('Failed to start services', error);

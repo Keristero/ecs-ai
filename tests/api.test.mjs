@@ -123,6 +123,15 @@ describe('API Server', () => {
     expect(spec.paths['/tools/addEntity'].post.summary).to.include('Add');
     expect(spec.paths).to.have.property('/agent/prompt');
 
+    const addComponentSchema = spec.paths['/tools/addComponent'].post.requestBody.content['application/json'].schema;
+    expect(addComponentSchema.type).to.equal('object');
+    expect(addComponentSchema.required).to.include.members(['eid', 'component_name']);
+    expect(addComponentSchema.properties.eid.type).to.equal('integer');
+    expect(addComponentSchema.properties.component_name.type).to.equal('string');
+
+    const addComponentWithValuesSchema = spec.paths['/tools/addComponentWithValues'].post.requestBody.content['application/json'].schema;
+    expect(addComponentWithValuesSchema.properties.component_values.additionalProperties.type).to.equal('number');
+
         const htmlResponse = await fetch(`${baseUrl}/docs`);
         expect(htmlResponse.status).to.equal(200);
         const html = await htmlResponse.text();
