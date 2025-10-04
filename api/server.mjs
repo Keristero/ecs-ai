@@ -3,6 +3,7 @@ import { z } from 'zod';
 import Logger from '../logger.mjs';
 import { tool_defs, resource_defs } from '../game_framework/ecs_interface.mjs';
 import env from '../environment.mjs';
+import { setupDocs } from './docs.mjs';
 
 const logger = new Logger('API Server', 'blue');
 
@@ -318,12 +319,15 @@ async function serve_api(game) {
         basePath: 'resources',
         collectionKey: 'resources'
     });
+
     createOllamaEndpoints(app, {
         fetchImpl,
         baseUrl: env.DEFAULT_OLLAMA_BASE_URL,
         model: env.ollama_model_name,
         mcpUrl: env.DEFAULT_MCP_URL
     });
+
+    setupDocs(app, { logger });
 
     const server = await listenAsync(app, env.api_port, env.api_host);
     const address = server.address();

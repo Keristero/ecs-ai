@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs/promises";
 import { createWorld, observe, onSet } from 'bitecs'
 import Logger from "../logger.mjs";
-const logger = new Logger("Game Framework");
+const logger = new Logger("Game Framework","red");
 
 function apply_component_values(component, eid, values){
     if (values == null) {

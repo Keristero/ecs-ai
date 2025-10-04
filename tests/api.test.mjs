@@ -113,6 +113,22 @@ describe('API Server', () => {
         expect(payload.result).to.contain('Added entity');
     });
 
+    it('serves OpenAPI documentation', async () => {
+        const specResponse = await fetch(`${baseUrl}/docs/openapi.json`);
+        expect(specResponse.status).to.equal(200);
+
+        const spec = await specResponse.json();
+    expect(spec.openapi).to.equal('3.1.0');
+    expect(spec.paths).to.have.property('/tools');
+    expect(spec.paths['/tools/addEntity'].post.summary).to.include('Add');
+    expect(spec.paths).to.have.property('/agent/prompt');
+
+        const htmlResponse = await fetch(`${baseUrl}/docs`);
+        expect(htmlResponse.status).to.equal(200);
+        const html = await htmlResponse.text();
+        expect(html).to.include('SwaggerUIBundle');
+    });
+
     it('forwards prompts to the Ollama agent with MCP configuration', async () => {
         const response = await fetch(`${baseUrl}/agent/prompt`, {
             method: 'POST',
