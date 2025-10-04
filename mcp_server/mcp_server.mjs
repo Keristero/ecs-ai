@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { tool_defs, resource_defs } from "../game_framework/ecs_interface.mjs";
 import express from 'express';
-import { mcp_port, mcp_host } from "../environment.mjs";
+import env from "../environment.mjs";
 import Logger from "../logger.mjs";
 const logger = new Logger("MCP Server", 'cyan');
 
@@ -48,8 +48,8 @@ async function serve_mcp(game) {
         await server.connect(transport);
         await transport.handleRequest(req, res, req.body);
     });
-    const host = mcp_host || '0.0.0.0';
-    const parsedPort = Number.isFinite(mcp_port) ? mcp_port : Number.parseInt(mcp_port, 10);
+    const host = env.mcp_host || '0.0.0.0';
+    const parsedPort = Number.isFinite(env.mcp_port) ? env.mcp_port : Number.parseInt(env.mcp_port, 10);
     const port = Number.isFinite(parsedPort) ? parsedPort : 6061;
 
     return await new Promise((resolve, reject) => {

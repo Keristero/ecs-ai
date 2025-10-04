@@ -2,13 +2,15 @@ import express from 'express';
 import { z } from 'zod';
 import Logger from '../logger.mjs';
 import { tool_defs, resource_defs } from '../game_framework/ecs_interface.mjs';
-import {
+import env from '../environment.mjs';
+
+const {
     DEFAULT_MCP_URL,
     DEFAULT_OLLAMA_BASE_URL,
-    api_host as defaultApiHost,
-    api_port as defaultApiPort,
-    ollama_model_name as defaultModel
-} from '../environment.mjs';
+    api_host: defaultApiHost,
+    api_port: defaultApiPort,
+    ollama_model_name: defaultModel
+} = env;
 
 const logger = new Logger('API Server', 'blue');
 
@@ -82,17 +84,20 @@ const parseInput = (schema, payload = {}) => {
     };
 };
 
-function createToolEndpoints(app, game) {
-    const tools = listToolMetadata(tool_defs);
+const registerDefinitions = (app, game, { defs, basePath, collectionKey }) => {
+    const collection = listToolMetadata(defs);
+    const collectionName = collectionKey.endsWith('s') ? collectionKey.slice(0, -1) : collectionKey;
+    const title = collectionName.charAt(0).toUpperCase() + collectionName.slice(1);
+    const errorCode = `${collectionName}_execution_failed`;
 
-    app.get('/tools', (req, res) => {
-        res.json({ tools });
+    app.get(`/${basePath}`, (req, res) => {
+        res.json({ [collectionKey]: collection });
     });
 
-    for (const [handle, definition] of Object.entries(tool_defs)) {
-        logger.info(`Creating tool endpoint: POST /tools/${handle}`);
+    for (const [handle, definition] of Object.entries(defs)) {
+        logger.info(`Creating ${collectionName} endpoint: POST /${basePath}/${handle}`);
 
-        app.post(`/tools/${handle}`, async (req, res) => {
+        app.post(`/${basePath}/${handle}`, async (req, res) => {
             const parsed = parseInput(definition?.details?.inputSchema, req.body ?? {});
 
             if (!parsed.success) {
@@ -112,55 +117,15 @@ function createToolEndpoints(app, game) {
                     raw: formatted.raw
                 });
             } catch (error) {
-                logger.error(`Tool '${handle}' failed`, error);
+                logger.error(`${title} '${handle}' failed`, error);
                 res.status(500).json({
-                    error: 'tool_execution_failed',
+                    error: errorCode,
                     message: error?.message ?? 'Unknown error'
                 });
             }
         });
     }
-}
-
-function createResourceEndpoints(app, game) {
-    const resources = listToolMetadata(resource_defs);
-
-    app.get('/resources', (req, res) => {
-        res.json({ resources });
-    });
-
-    for (const [handle, definition] of Object.entries(resource_defs)) {
-        logger.info(`Creating resource endpoint: POST /resources/${handle}`);
-
-        app.post(`/resources/${handle}`, async (req, res) => {
-            const parsed = parseInput(definition?.details?.inputSchema, req.body ?? {});
-
-            if (!parsed.success) {
-                return res.status(400).json({
-                    error: 'invalid_input',
-                    details: parsed.error
-                });
-            }
-
-            try {
-                const result = await definition.run({ game, ...parsed.data });
-                const formatted = formatToolResult(result);
-
-                res.json({
-                    handle,
-                    result: formatted.text,
-                    raw: formatted.raw
-                });
-            } catch (error) {
-                logger.error(`Resource '${handle}' failed`, error);
-                res.status(500).json({
-                    error: 'resource_execution_failed',
-                    message: error?.message ?? 'Unknown error'
-                });
-            }
-        });
-    }
-}
+};
 
 async function pipeReadableStreamToResponse(stream, res) {
     if (!stream) {
@@ -358,8 +323,17 @@ async function serve_api(game, options = {}) {
         res.json({ status: 'ok' });
     });
 
-    createToolEndpoints(app, game);
-    createResourceEndpoints(app, game);
+    registerDefinitions(app, game, {
+        defs: tool_defs,
+        basePath: 'tools',
+        collectionKey: 'tools'
+    });
+
+    registerDefinitions(app, game, {
+        defs: resource_defs,
+        basePath: 'resources',
+        collectionKey: 'resources'
+    });
     createOllamaEndpoints(app, {
         fetchImpl,
         baseUrl: ollamaBaseUrl,
