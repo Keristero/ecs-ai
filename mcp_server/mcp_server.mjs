@@ -49,8 +49,7 @@ async function serve_mcp(game) {
         await transport.handleRequest(req, res, req.body);
     });
     const host = env.mcp_host || '0.0.0.0';
-    const parsedPort = Number.isFinite(env.mcp_port) ? env.mcp_port : Number.parseInt(env.mcp_port, 10);
-    const port = Number.isFinite(parsedPort) ? parsedPort : 6061;
+    const port = Number.isFinite(env.mcp_port) ? env.mcp_port : 6061;
 
     return await new Promise((resolve, reject) => {
         const server = app

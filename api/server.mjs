@@ -4,14 +4,6 @@ import Logger from '../logger.mjs';
 import { tool_defs, resource_defs } from '../game_framework/ecs_interface.mjs';
 import env from '../environment.mjs';
 
-const {
-    DEFAULT_MCP_URL,
-    DEFAULT_OLLAMA_BASE_URL,
-    api_host: defaultApiHost,
-    api_port: defaultApiPort,
-    ollama_model_name: defaultModel
-} = env;
-
 const logger = new Logger('API Server', 'blue');
 
 const zMessage = z.object({
@@ -301,16 +293,8 @@ const listenAsync = (app, port, host) =>
             .on('error', (error) => reject(error));
     });
 
-async function serve_api(game, options = {}) {
-    const host = options.host ?? process.env.API_HOST ?? defaultApiHost;
-    const portValue = options.port ?? process.env.API_PORT ?? defaultApiPort;
-    const parsedPort = typeof portValue === 'string' ? Number.parseInt(portValue, 10) : portValue;
-    const port = Number.isFinite(parsedPort) ? parsedPort : defaultApiPort;
-
-    const ollamaBaseUrl = options.ollamaBaseUrl ?? process.env.OLLAMA_BASE_URL ?? DEFAULT_OLLAMA_BASE_URL;
-    const ollamaModel = options.ollamaModel ?? process.env.OLLAMA_MODEL_NAME ?? defaultModel;
-    const fetchImpl = options.fetchImpl ?? globalThis.fetch;
-    const mcpUrl = options.mcpUrl ?? process.env.MCP_URL ?? DEFAULT_MCP_URL;
+async function serve_api(game) {
+    const fetchImpl = globalThis.fetch;
 
     if (typeof fetchImpl !== 'function') {
         throw new Error('A fetch implementation must be provided to contact the Ollama server.');
@@ -336,15 +320,15 @@ async function serve_api(game, options = {}) {
     });
     createOllamaEndpoints(app, {
         fetchImpl,
-        baseUrl: ollamaBaseUrl,
-        model: ollamaModel,
-        mcpUrl
+        baseUrl: env.DEFAULT_OLLAMA_BASE_URL,
+        model: env.ollama_model_name,
+        mcpUrl: env.DEFAULT_MCP_URL
     });
 
-    const server = await listenAsync(app, port, host);
+    const server = await listenAsync(app, env.api_port, env.api_host);
     const address = server.address();
-    const boundPort = typeof address === 'object' && address ? address.port : port;
-    const boundHost = typeof address === 'object' && address ? address.address : host;
+    const boundPort = typeof address === 'object' && address ? address.port : env.api_port;
+    const boundHost = typeof address === 'object' && address ? address.address : env.api_host;
 
     logger.info(`API listening on http://${boundHost}:${boundPort}`);
 
