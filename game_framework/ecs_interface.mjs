@@ -38,7 +38,7 @@ function construct_tool_run_function(func){
 //reusable types
 const eid = z.number().int().nonnegative().describe("Entity ID")
 const component_name = z.string().describe("Name of the component to add")
-const component_values = z.map(z.string(), z.number()).describe("Map of component field names to values")
+const component_values = z.record(z.string(), z.number()).describe("Object mapping component field names to values")
 
 //tools
 tool_defs.addEntity = {
@@ -74,18 +74,9 @@ tool_defs.addComponentWithValues = {
     },
     run: construct_tool_run_function(async({game,eid,component_name,component_values})=>{
         const component = get_component_by_name(game,component_name)
-
-        const values = component_values instanceof Map
-            ? Object.fromEntries(component_values)
-            : { ...component_values }
+        const values = { ...(component_values ?? {}) }
 
         addComponent(game.world, eid, set(component, values))
-
-        for (const [field, value] of Object.entries(values)) {
-            if (component[field]) {
-                component[field][eid] = value
-            }
-        }
 
         return `Added component '${component_name}' with values ${JSON.stringify(values)} to entity ${eid}`
     })

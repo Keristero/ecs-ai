@@ -1,9 +1,45 @@
 import env from "../environment.mjs";
 import path from "path";
 import fs from "fs/promises";
-import { createWorld, addEntity, addComponent, addComponents, query } from 'bitecs'
+import { createWorld, observe, onSet } from 'bitecs'
 import Logger from "../logger.mjs";
 const logger = new Logger("Game Framework");
+
+function apply_component_values(component, eid, values){
+    if (values == null) {
+        return
+    }
+
+    if (Array.isArray(component) || ArrayBuffer.isView(component)) {
+        component[eid] = values
+        return
+    }
+
+    for (const [field, value] of Object.entries(values)) {
+        const target = component[field]
+
+        if (Array.isArray(target) || ArrayBuffer.isView(target)) {
+            target[eid] = value
+        } else if (target && typeof target === 'object') {
+            target[eid] = value
+        } else {
+            component[field] = value
+        }
+    }
+}
+
+function register_component_onset_handlers(world, components){
+    for (const component of Object.values(components)) {
+        if (!component || typeof component !== 'object') {
+            continue
+        }
+
+        observe(world, onSet(component), (eid, params = {}) => {
+            apply_component_values(component, eid, params)
+            return params
+        })
+    }
+}
 
 async function _import_all_exports_from_directory(directory){
     logger.info(`Importing all modules from directory: ${directory}`)
@@ -41,6 +77,8 @@ async function initialize_game(){
     game.world = createWorld({
         components: components
     })
+
+    register_component_onset_handlers(game.world, components)
 
     logger.info(`Game initialized`,game)
     return game
