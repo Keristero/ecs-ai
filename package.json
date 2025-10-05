@@ -11,13 +11,14 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.1.0",
     "@modelcontextprotocol/sdk": "^1.17.1",
     "bitecs": "github:NateTheGreatt/bitECS",
     "express": "^4.19.2",
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "mocha": "^10.7.3",
-    "chai": "^5.1.1"
+    "chai": "^5.1.1",
+    "mocha": "^10.7.3"
   }
 }

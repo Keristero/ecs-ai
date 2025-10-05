@@ -26,7 +26,7 @@ An end-to-end playground for driving an ECS text adventure through the Model Con
 3. In another terminal, launch the game + MCP + API stack:
 
      ```bash
-     npm start
+     mise start
      ```
 
      This calls `node main.mjs`, which boots the ECS game, hosts the MCP server at `http://<MCP_HOST>:<MCP_PORT>/mcp`, and exposes the REST API (default `http://0.0.0.0:6060`).

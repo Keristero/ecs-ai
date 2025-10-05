@@ -71,10 +71,14 @@ describe('API Server', () => {
     let baseUrl;
     let fetchInterceptor;
     let originalGameLogicFolderPath;
+    let originalApiPort;
+    let originalApiHost;
 
     before(() => {
         originalGameLogicFolderPath = process.env.GAME_LOGIC_FOLDER_PATH;
         process.env.GAME_LOGIC_FOLDER_PATH = path.resolve('./tests/fixtures');
+        originalApiPort = env.api_port;
+        originalApiHost = env.api_host;
     });
 
     after(() => {
@@ -83,10 +87,14 @@ describe('API Server', () => {
         } else {
             process.env.GAME_LOGIC_FOLDER_PATH = originalGameLogicFolderPath;
         }
+        env.api_port = originalApiPort;
+        env.api_host = originalApiHost;
     });
 
     beforeEach(async () => {
         fetchInterceptor = installOllamaFetchStub();
+        env.api_port = 0;
+        env.api_host = '127.0.0.1';
         const game = await initialize_game();
         serverInfo = await serve_api(game);
         baseUrl = resolveServerBaseUrl(serverInfo.server);
@@ -118,19 +126,25 @@ describe('API Server', () => {
         expect(specResponse.status).to.equal(200);
 
         const spec = await specResponse.json();
-    expect(spec.openapi).to.equal('3.1.0');
-    expect(spec.paths).to.have.property('/tools');
-    expect(spec.paths['/tools/addEntity'].post.summary).to.include('Add');
-    expect(spec.paths).to.have.property('/agent/prompt');
+        expect(spec.openapi).to.equal('3.1.0');
+        expect(spec.paths).to.have.property('/tools');
+        expect(spec.paths['/tools/addEntity'].post.summary).to.include('Add');
+        expect(spec.paths).to.have.property('/agent/prompt');
 
-    const addComponentSchema = spec.paths['/tools/addComponent'].post.requestBody.content['application/json'].schema;
-    expect(addComponentSchema.type).to.equal('object');
-    expect(addComponentSchema.required).to.include.members(['eid', 'component_name']);
-    expect(addComponentSchema.properties.eid.type).to.equal('integer');
-    expect(addComponentSchema.properties.component_name.type).to.equal('string');
+        const addComponentRequest = spec.paths['/tools/addComponent'].post.requestBody.content['application/json'].schema;
+        expect(addComponentRequest).to.deep.equal({ $ref: '#/components/schemas/ToolsAddComponentInput' });
 
-    const addComponentWithValuesSchema = spec.paths['/tools/addComponentWithValues'].post.requestBody.content['application/json'].schema;
-    expect(addComponentWithValuesSchema.properties.component_values.additionalProperties.type).to.equal('number');
+        const addComponentSchema = spec.components.schemas.ToolsAddComponentInput;
+        expect(addComponentSchema.type).to.equal('object');
+        expect(addComponentSchema.required).to.include.members(['eid', 'component_name']);
+        expect(addComponentSchema.properties.eid.type).to.equal('integer');
+        expect(addComponentSchema.properties.component_name.type).to.equal('string');
+
+        const addComponentWithValuesRequest = spec.paths['/tools/addComponentWithValues'].post.requestBody.content['application/json'].schema;
+        expect(addComponentWithValuesRequest).to.deep.equal({ $ref: '#/components/schemas/ToolsAddComponentWithValuesInput' });
+
+        const addComponentWithValuesSchema = spec.components.schemas.ToolsAddComponentWithValuesInput;
+        expect(addComponentWithValuesSchema.properties.component_values.additionalProperties.type).to.equal('number');
 
         const htmlResponse = await fetch(`${baseUrl}/docs`);
         expect(htmlResponse.status).to.equal(200);

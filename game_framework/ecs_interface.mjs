@@ -1,5 +1,8 @@
 import { addEntity, addComponent, query, set } from 'bitecs'
 import { z } from "zod";
+import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+
+extendZodWithOpenApi(z);
 
 const tool_defs = {}
 const resource_defs = {}
