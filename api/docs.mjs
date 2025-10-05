@@ -310,6 +310,9 @@ const zodToSwaggerSchema = (() => {
                 return schema;
             },
             ZodRecord: (def) => ({ type: 'object', additionalProperties: def.valueType ? convertSchema(def.valueType) : { type: 'number' } }),
+            ZodUnion: (def) => ({
+                oneOf: def.options?.map(convertSchema) ?? []
+            }),
             ZodOptional: (def) => convertSchema(def.innerType),
             ZodDefault: (def) => convertSchema(def.innerType),
             ZodObject: (def) => {

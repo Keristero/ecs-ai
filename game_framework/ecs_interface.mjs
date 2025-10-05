@@ -38,7 +38,10 @@ function construct_tool_run_function(func){
 //reusable types
 const eid = z.number().int().nonnegative().describe("Entity ID")
 const component_name = z.string().describe("Name of the component to add")
-const component_values = z.record(z.string(), z.number()).describe("Object mapping component field names to values")
+const component_values = z.array(z.object({
+    prop_name: z.string().describe("Component property name"),
+    prop_value: z.number().describe("Component property value")
+})).describe("Array of {prop_name, prop_value} entries to set on the component")
 
 //tools
 tool_defs.addEntity = {
@@ -74,7 +77,14 @@ tool_defs.addComponentWithValues = {
     },
     run: construct_tool_run_function(async({game,eid,component_name,component_values})=>{
         const component = get_component_by_name(game,component_name)
-        const values = { ...(component_values ?? {}) }
+
+        // Convert array of {prop_name, prop_value} into an object mapping
+        const values = {}
+        (component_values ?? []).forEach(({prop_name, prop_value})=>{
+            if(typeof prop_name === 'string'){
+                values[prop_name] = prop_value
+            }
+        })
 
         addComponent(game.world, eid, set(component, values))
 
@@ -82,8 +92,32 @@ tool_defs.addComponentWithValues = {
     })
 }
 
-//resources
-resource_defs.queryEntitiesWithComponents = {
+tool_defs.listComponents = {
+    details: {
+        title: "List Components",
+        description: "List all available components in the game world with their properties",
+        inputSchema: z.object({})
+    },
+    run: construct_tool_run_function(async({game})=>{
+        if(!game.world || !game.world.components){
+            throw new Error("Game world or components not initialized")
+        }
+        const componentNames = Object.keys(game.world.components)
+        if(componentNames.length === 0){
+            return "No components registered in the game world"
+        }
+        
+        const componentDetails = componentNames.map(name => {
+            const component = game.world.components[name]
+            const properties = Object.keys(component).filter(key => Array.isArray(component[key]))
+            return `${name}: [${properties.join(", ")}]`
+        })
+        
+        return `Available components:\n${componentDetails.join("\n")}`
+    })
+}
+
+tool_defs.queryEntitiesWithComponents = {
     details: {
         title: "Query Entities With Components",
         description: "Query entities that have all of the specified components",
@@ -98,20 +132,7 @@ resource_defs.queryEntitiesWithComponents = {
     })
 }
 
-resource_defs.listComponents = {
-    details: {
-        title: "List Components",
-        description: "Get a list of all available components in the game world",
-        inputSchema: z.object({})
-    },
-    run: construct_tool_run_function(async({game})=>{
-        if(!game.world || !game.world.components){
-            throw new Error("Game world or components not initialized")
-        }
-        const component_names = Object.keys(game.world.components)
-        return `Available components: ${component_names.join(", ")}`
-    })
-}
+//resources
 
 export {
     tool_defs,

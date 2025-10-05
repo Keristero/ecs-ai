@@ -57,6 +57,21 @@ describe('ECS Interface tools', () => {
         expect(position.x[eid]).to.equal(5)
         expect(position.y[eid]).to.equal(-3)
     })
+
+    it('addComponentWithValues accepts array-form component assignments', async () => {
+        await tool_defs.addComponentWithValues.run({
+            game,
+            eid,
+            component_name: 'Position',
+            component_values: [
+                { field: 'x', value: 12 },
+                { field: 'y', value: 34 }
+            ]
+        })
+
+        expect(position.x[eid]).to.equal(12)
+        expect(position.y[eid]).to.equal(34)
+    })
 })
 
 describe('ECS Interface resources', () => {
