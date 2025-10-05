@@ -26,6 +26,11 @@ const env = {
 };
 
 env.DEFAULT_MCP_URL = readString('MCP_URL', `http://${env.mcp_host}:${env.mcp_port}/mcp`);
-env.DEFAULT_OLLAMA_BASE_URL = readString('OLLAMA_BASE_URL', `http://${env.ollama_host}:${env.ollama_port}`);
+
+const defaultOllamaHost = env.ollama_host.includes(':')
+    ? env.ollama_host
+    : `${env.ollama_host}:${env.ollama_port}`;
+
+env.DEFAULT_OLLAMA_BASE_URL = readString('OLLAMA_BASE_URL', `http://${defaultOllamaHost}`);
 
 export default env;

@@ -146,6 +146,13 @@ describe('API Server', () => {
         const addComponentWithValuesSchema = spec.components.schemas.ToolsAddComponentWithValuesInput;
         expect(addComponentWithValuesSchema.properties.component_values.additionalProperties.type).to.equal('number');
 
+    const agentPromptRequest = spec.paths['/agent/prompt'].post.requestBody.content['application/json'].schema;
+    expect(agentPromptRequest).to.deep.equal({ $ref: '#/components/schemas/AgentPromptInput' });
+
+    const agentPromptSchema = spec.components.schemas.AgentPromptInput;
+    expect(agentPromptSchema.required).to.include('prompt');
+    expect(agentPromptSchema.properties.prompt.minLength).to.equal(1);
+
         const htmlResponse = await fetch(`${baseUrl}/docs`);
         expect(htmlResponse.status).to.equal(200);
         const html = await htmlResponse.text();

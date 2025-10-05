@@ -5,6 +5,7 @@ import { OpenAPIRegistry, OpenApiGeneratorV31, extendZodWithOpenApi } from '@ast
 import { z } from 'zod';
 import env from '../environment.mjs';
 import { tool_defs, resource_defs } from '../game_framework/ecs_interface.mjs';
+import { ollama_defs } from './ollama_defs.mjs';
 
 extendZodWithOpenApi(z);
 
@@ -65,7 +66,47 @@ const generateOpenApiSpec=()=>{
     spec.paths['/health']={get:{summary:'Health check',responses:{200:{description:'Service is healthy'}}}};
     addCollection(spec,tool_defs,'tools',{ registry, describeInput });
     addCollection(spec,resource_defs,'resources',{ registry, describeInput });
-    spec.paths['/agent/prompt']={post:{summary:'Forward a prompt to the Ollama agent',responses:{200:{description:'Prompt processed successfully'},400:{description:'Invalid prompt payload'},502:{description:'Failed to contact Ollama server'}}}};
+
+    const ollamaPromptDef = ollama_defs?.prompt;
+    if (ollamaPromptDef) {
+        const { hasPayload, schema } = describeInput(ollamaPromptDef.details?.inputSchema, {
+            refId: 'AgentPromptInput'
+        });
+
+        spec.paths['/agent/prompt'] = {
+            post: {
+                summary: ollamaPromptDef.details?.title ?? 'Forward a prompt to the Ollama agent',
+                description: ollamaPromptDef.details?.description,
+                requestBody: hasPayload
+                    ? {
+                          required: true,
+                          content: {
+                              'application/json': {
+                                  schema
+                              }
+                          }
+                      }
+                    : undefined,
+                responses: {
+                    200: { description: 'Prompt processed successfully' },
+                    400: { description: 'Invalid prompt payload' },
+                    500: { description: 'Ollama execution failed' },
+                    502: { description: 'Failed to contact Ollama server' }
+                }
+            }
+        };
+    } else {
+        spec.paths['/agent/prompt'] = {
+            post: {
+                summary: 'Forward a prompt to the Ollama agent',
+                responses: {
+                    200: { description: 'Prompt processed successfully' },
+                    400: { description: 'Invalid prompt payload' },
+                    502: { description: 'Failed to contact Ollama server' }
+                }
+            }
+        };
+    }
 
     const generator=new OpenApiGeneratorV31(registry.definitions);
     const generated=generator.generateComponents();

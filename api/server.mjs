@@ -1,27 +1,12 @@
 import express from 'express';
-import { z } from 'zod';
 import Logger from '../logger.mjs';
 import { tool_defs, resource_defs } from '../game_framework/ecs_interface.mjs';
 import env from '../environment.mjs';
 import { setupDocs } from './docs.mjs';
+import { ollama_defs } from './ollama_defs.mjs';
 
 const logger = new Logger('API Server', 'blue');
 
-const zMessage = z.object({
-    role: z.enum(['system', 'user', 'assistant']),
-    content: z.string().min(1)
-});
-
-const zPromptPayload = z.object({
-    prompt: z.string().min(1, 'prompt is required'),
-    systemPrompt: z.string().optional(),
-    context: z.array(z.string().min(1)).optional(),
-    toolsWhitelist: z.array(z.string().min(1)).optional(),
-    toolsBlacklist: z.array(z.string().min(1)).optional(),
-    messages: z.array(zMessage).optional(),
-    options: z.record(z.any()).optional(),
-    stream: z.boolean().optional()
-});
 
 const formatToolResult = (result) => {
     if (!result) {
@@ -143,148 +128,67 @@ async function pipeReadableStreamToResponse(stream, res) {
 }
 
 function createOllamaEndpoints(app, config) {
-    const {
-        fetchImpl,
-        baseUrl,
-        model,
-        mcpUrl
-    } = config;
-
-    if (typeof fetchImpl !== 'function') {
+    if (typeof config?.fetchImpl !== 'function') {
         throw new Error('A fetch implementation is required to contact the Ollama server.');
     }
 
-    app.post('/agent/prompt', async (req, res) => {
-        const parsed = zPromptPayload.safeParse(req.body ?? {});
+    for (const [handle, definition] of Object.entries(ollama_defs)) {
+        const path = `/agent/${handle}`;
+        logger.info(`Creating Ollama endpoint: POST ${path}`);
 
-        if (!parsed.success) {
-            return res.status(400).json({
-                error: 'invalid_prompt_payload',
-                details: parsed.error.flatten()
-            });
-        }
+        app.post(path, async (req, res) => {
+            const parsed = parseInput(definition.details?.inputSchema, req.body ?? {});
 
-        const payload = parsed.data;
-        const allToolHandles = Object.keys(tool_defs);
-
-        let allowedTools = allToolHandles;
-        if (payload.toolsWhitelist?.length) {
-            const whitelist = new Set(payload.toolsWhitelist);
-            allowedTools = allowedTools.filter((handle) => whitelist.has(handle));
-        }
-
-        if (payload.toolsBlacklist?.length) {
-            const blacklist = new Set(payload.toolsBlacklist);
-            allowedTools = allowedTools.filter((handle) => !blacklist.has(handle));
-        }
-
-        const forbiddenTools = payload.toolsBlacklist?.length
-            ? payload.toolsBlacklist.filter((handle) => allToolHandles.includes(handle))
-            : [];
-
-        const systemLines = [];
-        if (payload.systemPrompt) {
-            systemLines.push(payload.systemPrompt);
-        } else {
-            systemLines.push(
-                `You control a game via Model Context Protocol. Connect to ${mcpUrl} when you need to inspect or change the world.`
-            );
-        }
-
-        if (allowedTools.length) {
-            systemLines.push(`Allowed MCP tools: ${allowedTools.join(', ')}.`);
-        } else {
-            systemLines.push('No MCP tools are available for this task.');
-        }
-
-        if (forbiddenTools.length) {
-            systemLines.push(`Do not use these tools: ${forbiddenTools.join(', ')}.`);
-        }
-
-        if (payload.context?.length) {
-            for (const ctx of payload.context) {
-                systemLines.push(`Context: ${ctx}`);
+            if (!parsed.success) {
+                return res.status(400).json({
+                    error: 'invalid_prompt_payload',
+                    details: parsed.error
+                });
             }
-        }
 
-        const messages = [
-            { role: 'system', content: systemLines.join('\n') },
-            ...(payload.messages ?? []).filter((message) => message.role !== 'system')
-        ];
+            try {
+                const result = await definition.run({
+                    config,
+                    payload: parsed.data
+                });
 
-        messages.push({ role: 'user', content: payload.prompt });
-
-        const normalizedBase = baseUrl.replace(/\/$/, '');
-        const requestBody = {
-            model,
-            messages,
-            options: {
-                ...payload.options,
-                mcp: {
-                    ...(payload.options?.mcp ?? {}),
-                    servers: {
-                        ...(payload.options?.mcp?.servers ?? {}),
-                        ecs: {
-                            url: mcpUrl
-                        }
-                    },
-                    allow: allowedTools,
-                    deny: forbiddenTools
+                if (result?.log) {
+                    const logArgs = Array.isArray(result.log) ? result.log : [result.log];
+                    logger.error(...logArgs);
                 }
-            },
-            stream: payload.stream ?? false
-        };
 
-        let ollamaResponse;
+                if (result?.type === 'stream') {
+                    res.status(result.status ?? 200);
 
-        try {
-            ollamaResponse = await fetchImpl(`${normalizedBase}/api/chat`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-        } catch (error) {
-            logger.error('Failed to reach Ollama server', error);
-            return res.status(502).json({
-                error: 'ollama_unreachable',
-                message: error?.message ?? 'Failed to contact Ollama server.'
-            });
-        }
+                    if (result.headers) {
+                        for (const [header, value] of Object.entries(result.headers)) {
+                            if (value != null) {
+                                res.setHeader(header, value);
+                            }
+                        }
+                    }
 
-        if (payload.stream) {
-            res.status(ollamaResponse.status);
-            res.setHeader('Content-Type', ollamaResponse.headers.get('content-type') ?? 'application/x-ndjson');
-            res.setHeader('Connection', 'keep-alive');
-            await pipeReadableStreamToResponse(ollamaResponse.body, res);
-            return;
-        }
+                    await pipeReadableStreamToResponse(result.stream, res);
+                    return;
+                }
 
-        const responseText = await ollamaResponse.text();
-        let data;
+                const status = result?.status ?? 200;
+                const body = result?.body ?? {};
 
-        try {
-            data = responseText ? JSON.parse(responseText) : {};
-        } catch (error) {
-            data = { raw: responseText };
-        }
+                if (result?.type === 'error' && !result?.log) {
+                    logger.error(`Ollama '${handle}' returned an error response`, body);
+                }
 
-        if (!ollamaResponse.ok) {
-            return res.status(ollamaResponse.status).json({
-                error: 'ollama_error',
-                details: data
-            });
-        }
-
-        res.status(200).json({
-            ...data,
-            model,
-            mcpUrl,
-            allowedTools,
-            forbiddenTools
+                res.status(status).json(body);
+            } catch (error) {
+                logger.error(`Ollama '${handle}' failed`, error);
+                res.status(500).json({
+                    error: 'ollama_execution_failed',
+                    message: error?.message ?? 'Unknown error'
+                });
+            }
         });
-    });
+    }
 }
 
 const listenAsync = (app, port, host) =>

@@ -41,7 +41,7 @@ All knobs live in `environment.mjs` and are surfaced through environment variabl
 | `GAME_LOGIC_SCRIPT_NAME` (`game.mjs`) | Entry point filename inside the logic folder |
 | `MCP_HOST` (`127.0.0.1`) / `MCP_PORT` (`6061`) | Bind address and port for the MCP server |
 | `API_HOST` (`0.0.0.0`) / `API_PORT` (`6060`) | Bind address and port for the REST API |
-| `OLLAMA_HOST` (`127.0.0.1`) / `OLLAMA_PORT` (`6062`) | Location of the Ollama HTTP service |
+| `OLLAMA_HOST` (`127.0.0.1:6062`) | Location of the Ollama HTTP service |
 | `OLLAMA_MODEL_NAME` (`qwen3`) | Model invoked when prompting the agent |
 
 The API also derives `DEFAULT_MCP_URL` and `DEFAULT_OLLAMA_BASE_URL`, so custom deployments only need to override the env vars that differ from the defaults.
