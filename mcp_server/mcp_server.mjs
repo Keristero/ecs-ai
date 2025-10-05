@@ -1,10 +1,94 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { tool_defs, resource_defs } from "../game_framework/ecs_interface.mjs";
 import express from 'express';
 import env from "../environment.mjs";
 import Logger from "../logger.mjs";
 const logger = new Logger("MCP Server", 'cyan');
+
+const DEFAULT_MIME_TYPE = 'text/plain';
+
+function extractInputShape(zodObject) {
+    if (!zodObject) return undefined;
+    if (typeof zodObject.shape === 'function') {
+        return zodObject.shape();
+    }
+    if (zodObject.shape) {
+        return zodObject.shape;
+    }
+    const defShape = zodObject._def?.shape;
+    if (!defShape) return undefined;
+    return typeof defShape === 'function' ? defShape() : defShape;
+}
+
+function normalizeTextResult(result) {
+    if (typeof result === 'string') {
+        return result;
+    }
+
+    const contentBlocks = result?.content;
+    if (Array.isArray(contentBlocks)) {
+        const textBlock = contentBlocks.find((block) => block?.type === 'text' && typeof block.text === 'string');
+        if (textBlock?.text) {
+            return textBlock.text;
+        }
+    }
+
+    try {
+        return JSON.stringify(result);
+    } catch (error) {
+        logger.warn(`Failed to stringify tool/resource result: ${error.message}`);
+        return '';
+    }
+}
+
+function decodeArguments(encodedValue, handle) {
+    if (!encodedValue) {
+        return {};
+    }
+
+    try {
+        const json = Buffer.from(encodedValue, 'base64url').toString('utf8');
+        const parsed = JSON.parse(json);
+        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+    } catch (error) {
+        logger.warn(`Resource ${handle}: failed to decode arguments: ${error.message}`);
+        return {};
+    }
+}
+
+function buildResourceMetadata(resource_def, additionalMeta = {}) {
+    const metadata = {
+        title: resource_def?.details?.title,
+        description: resource_def?.details?.description,
+        mimeType: DEFAULT_MIME_TYPE,
+        ...additionalMeta
+    };
+
+    const inputShape = extractInputShape(resource_def?.details?.inputSchema);
+    if (inputShape && Object.keys(inputShape).length > 0) {
+        metadata._meta = {
+            ...(metadata._meta ?? {}),
+            argumentsEncoding: 'base64url-json',
+            inputFields: Object.keys(inputShape)
+        };
+    }
+
+    return metadata;
+}
+
+function buildResourceResult(uri, result) {
+    const text = normalizeTextResult(result);
+    return {
+        contents: [
+            {
+                uri: uri.href,
+                mimeType: DEFAULT_MIME_TYPE,
+                text
+            }
+        ]
+    };
+}
 
 async function serve_mcp(game) {
 
@@ -22,16 +106,9 @@ async function serve_mcp(game) {
     for (const handle in tool_defs) {
         logger.info(`Registering tool: ${handle}`)
         const tool_def = tool_defs[handle]
-        
-        // Extract schema properties for MCP format
-        let inputSchema = {};
-        if (tool_def.details.inputSchema && tool_def.details.inputSchema._def?.shape) {
-            const shape = typeof tool_def.details.inputSchema._def.shape === 'function' 
-                ? tool_def.details.inputSchema._def.shape() 
-                : tool_def.details.inputSchema._def.shape;
-            inputSchema = shape || {};
-        }
-        
+
+        const inputSchema = extractInputShape(tool_def?.details?.inputSchema);
+
         server.registerTool(
             handle,
             {
@@ -55,34 +132,34 @@ async function serve_mcp(game) {
     for (const handle in resource_defs) {
         logger.info(`Registering resource: ${handle}`)
         const resource_def = resource_defs[handle]
-        
-        // Extract schema properties for MCP format  
-        let inputSchema = {};
-        if (resource_def.details.inputSchema && resource_def.details.inputSchema._def?.shape) {
-            const shape = typeof resource_def.details.inputSchema._def.shape === 'function' 
-                ? resource_def.details.inputSchema._def.shape() 
-                : resource_def.details.inputSchema._def.shape;
-            inputSchema = shape || {};
+
+        const inputShape = extractInputShape(resource_def?.details?.inputSchema);
+
+        if (!inputShape || Object.keys(inputShape).length === 0) {
+            const uri = `ecs-resource://${handle}`;
+            server.registerResource(
+                handle,
+                uri,
+                buildResourceMetadata(resource_def),
+                async (uriObj) => {
+                    const result = await resource_def.run({ game });
+                    return buildResourceResult(uriObj, result);
+                }
+            );
+            continue;
         }
-        
+
+        const template = new ResourceTemplate(`ecs-resource://${handle}/{arguments}`, { list: undefined });
         server.registerResource(
             handle,
-            {
-                title: resource_def.details.title,
-                description: resource_def.details.description,
-                inputSchema
-            },
-            async (args) => {
-                const result = await resource_def.run({game, ...args});
-                return {
-                    content: [{
-                        type: 'text', 
-                        text: typeof result === 'string' ? result : 
-                              result?.content?.[0]?.text || JSON.stringify(result)
-                    }]
-                };
+            template,
+            buildResourceMetadata(resource_def),
+            async (uriObj, variables) => {
+                const decoded = decodeArguments(variables?.arguments, handle);
+                const result = await resource_def.run({ game, ...decoded });
+                return buildResourceResult(uriObj, result);
             }
-        )
+        );
     }
 
     const app = express();

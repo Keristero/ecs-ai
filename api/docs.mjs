@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tool_defs, resource_defs } from '../game_framework/ecs_interface.mjs';
+import { zPromptPayload } from './ollama_defs.mjs';
 import env from '../environment.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -10,7 +11,7 @@ const docsHtml = readFileSync(path.join(__dirname, 'docs.html'), 'utf8');
 
 const generateSwaggerSpec = () => {
     const spec = {
-        openapi: '3.0.0',
+        openapi: '3.1.0',
         info: {
             title: 'ECS API',
             version: '1.0.0',
@@ -20,7 +21,10 @@ const generateSwaggerSpec = () => {
             url: `http://${env.api_host}:${env.api_port}`,
             description: 'Local development server'
         }],
-        paths: {}
+        paths: {},
+        components: {
+            schemas: {}
+        }
     };
 
     // Health endpoint
@@ -48,6 +52,65 @@ const generateSwaggerSpec = () => {
     // Add tools endpoints
     addCollectionPaths(spec, tool_defs, 'tools');
     addCollectionPaths(spec, resource_defs, 'resources');
+
+    const agentSchemaName = 'AgentPromptInput';
+    spec.components.schemas[agentSchemaName] = zodToSwaggerSchema(zPromptPayload);
+
+    spec.paths['/agent/prompt'] = {
+        post: {
+            summary: 'Send a prompt to the Ollama-backed agent',
+            description: 'Forwards prompts to the Ollama agent with MCP configuration applied.',
+            requestBody: {
+                required: true,
+                content: {
+                    'application/json': {
+                        schema: { $ref: `#/components/schemas/${agentSchemaName}` }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: 'Agent response from Ollama',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                additionalProperties: true
+                            }
+                        }
+                    }
+                },
+                400: {
+                    description: 'Invalid prompt payload',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    error: { type: 'string', example: 'invalid_prompt_payload' },
+                                    details: { type: 'object' }
+                                }
+                            }
+                        }
+                    }
+                },
+                502: {
+                    description: 'Ollama server unavailable',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    error: { type: 'string', example: 'ollama_unreachable' },
+                                    message: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
 
     return spec;
 };
@@ -102,6 +165,12 @@ const responses = {
     }
 };
 
+const toPascalCase = (value) => value
+    .split(/[^a-zA-Z0-9]/)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join('');
+
 const addCollectionPaths = (spec, defs, basePath) => {
     // List endpoint
     spec.paths[`/${basePath}`] = {
@@ -137,6 +206,11 @@ const addCollectionPaths = (spec, defs, basePath) => {
 
     // Execution endpoints
     for (const [handle, definition] of Object.entries(defs)) {
+        const schemaName = `${toPascalCase(basePath)}${toPascalCase(handle)}Input`;
+        if (!spec.components.schemas[schemaName]) {
+            spec.components.schemas[schemaName] = zodToSwaggerSchema(definition?.details?.inputSchema);
+        }
+
         spec.paths[`/${basePath}/${handle}`] = {
             post: {
                 summary: definition?.details?.title || `Execute ${handle}`,
@@ -144,7 +218,7 @@ const addCollectionPaths = (spec, defs, basePath) => {
                 requestBody: {
                     content: {
                         'application/json': {
-                            schema: zodToSwaggerSchema(definition?.details?.inputSchema)
+                            schema: { $ref: `#/components/schemas/${schemaName}` }
                         }
                     }
                 },
@@ -175,14 +249,69 @@ const zodToSwaggerSchema = (() => {
         const typeName = def.typeName || (def.type ? `Zod${def.type.charAt(0).toUpperCase() + def.type.slice(1)}` : null);
         
         const typeConverters = {
-            ZodString: () => ({ type: 'string' }),
-            ZodNumber: () => ({ type: 'number' }),
+            ZodString: (def) => {
+                const schema = { type: 'string' };
+                if (Array.isArray(def.checks)) {
+                    for (const check of def.checks) {
+                        if (check.kind === 'min' && typeof check.value === 'number') {
+                            schema.minLength = check.value;
+                        }
+                        if (check.kind === 'max' && typeof check.value === 'number') {
+                            schema.maxLength = check.value;
+                        }
+                        if (check.kind === 'regex' && check.regex instanceof RegExp) {
+                            schema.pattern = check.regex.source;
+                        }
+                    }
+                }
+                if (typeof def.coerce === 'boolean' && def.coerce) {
+                    schema.description = schema.description
+                        ? `${schema.description} (coerced)`
+                        : 'String (coerced)';
+                }
+                return schema;
+            },
+            ZodNumber: (def) => {
+                const schema = { type: 'number' };
+                if (Array.isArray(def.checks)) {
+                    for (const check of def.checks) {
+                        if (check.kind === 'int') {
+                            schema.type = 'integer';
+                        }
+                        if (check.kind === 'min' && typeof check.value === 'number') {
+                            schema.minimum = check.value;
+                            if (check.inclusive === false) {
+                                schema.exclusiveMinimum = check.value;
+                                delete schema.minimum;
+                            }
+                        }
+                        if (check.kind === 'max' && typeof check.value === 'number') {
+                            schema.maximum = check.value;
+                            if (check.inclusive === false) {
+                                schema.exclusiveMaximum = check.value;
+                                delete schema.maximum;
+                            }
+                        }
+                    }
+                }
+                return schema;
+            },
             ZodInt: () => ({ type: 'integer' }),
             ZodBoolean: () => ({ type: 'boolean' }),
             ZodDate: () => ({ type: 'string', format: 'date-time' }),
-            ZodArray: (def) => ({ type: 'array', items: convertSchema(def.type) }),
+            ZodArray: (def) => {
+                const schema = { type: 'array', items: convertSchema(def.type) };
+                if (def.minLength && typeof def.minLength.value === 'number') {
+                    schema.minItems = def.minLength.value;
+                }
+                if (def.maxLength && typeof def.maxLength.value === 'number') {
+                    schema.maxItems = def.maxLength.value;
+                }
+                return schema;
+            },
             ZodRecord: (def) => ({ type: 'object', additionalProperties: def.valueType ? convertSchema(def.valueType) : { type: 'number' } }),
             ZodOptional: (def) => convertSchema(def.innerType),
+            ZodDefault: (def) => convertSchema(def.innerType),
             ZodObject: (def) => {
                 const shape = typeof def.shape === 'function' ? def.shape() : def.shape;
                 if (!shape) return { type: 'object' };
