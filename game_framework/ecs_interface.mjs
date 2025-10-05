@@ -1,8 +1,5 @@
 import { addEntity, addComponent, query, set } from 'bitecs'
 import { z } from "zod";
-import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
-
-extendZodWithOpenApi(z);
 
 const tool_defs = {}
 const resource_defs = {}
@@ -98,6 +95,21 @@ resource_defs.queryEntitiesWithComponents = {
         const components = component_names.map(name=>get_component_by_name(game,name))
         const eids = query(game.world, components)
         return `Entities with components [${component_names.join(", ")}]: ${Array.from(eids).join(", ")}`
+    })
+}
+
+resource_defs.listComponents = {
+    details: {
+        title: "List Components",
+        description: "Get a list of all available components in the game world",
+        inputSchema: z.object({})
+    },
+    run: construct_tool_run_function(async({game})=>{
+        if(!game.world || !game.world.components){
+            throw new Error("Game world or components not initialized")
+        }
+        const component_names = Object.keys(game.world.components)
+        return `Available components: ${component_names.join(", ")}`
     })
 }
 

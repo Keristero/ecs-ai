@@ -2,7 +2,7 @@ import { describe, it, beforeEach } from 'mocha'
 import { expect } from 'chai'
 import path from 'path'
 import { initialize_game } from '../game_framework/framework.mjs'
-import { tool_defs } from '../game_framework/ecs_interface.mjs'
+import { tool_defs, resource_defs } from '../game_framework/ecs_interface.mjs'
 import { addEntity, hasComponent } from 'bitecs'
 
 describe('ECS Interface tools', () => {
@@ -56,5 +56,24 @@ describe('ECS Interface tools', () => {
 
         expect(position.x[eid]).to.equal(5)
         expect(position.y[eid]).to.equal(-3)
+    })
+})
+
+describe('ECS Interface resources', () => {
+    let game
+
+    beforeEach(async () => {
+        process.env.GAME_LOGIC_FOLDER_PATH = path.resolve('./tests/fixtures')
+        game = await initialize_game()
+    })
+
+    it('listComponents resource returns all available components', async () => {
+        const response = await resource_defs.listComponents.run({
+            game
+        })
+
+        expect(response.content[0].text).to.contain("Available components:")
+        expect(response.content[0].text).to.contain("Position")
+        expect(response.content[0].text).to.contain("Health")
     })
 })

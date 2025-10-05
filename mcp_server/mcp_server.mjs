@@ -8,27 +8,81 @@ const logger = new Logger("MCP Server", 'cyan');
 
 async function serve_mcp(game) {
 
-    // Create an MCP server
+    // Create an MCP server with resources capability
     const server = new McpServer({
         name: "ecs-server",
         version: "1.0.0"
+    }, {
+        capabilities: {
+            resources: {}
+        }
     });
 
     // Add all tools exposed by the ECS interface
     for (const handle in tool_defs) {
         logger.info(`Registering tool: ${handle}`)
         const tool_def = tool_defs[handle]
-        server.registerTool(handle, tool_def.details, ()=>{
-            return tool_def.run({game, ...arguments[0]})
-        })
+        
+        // Extract schema properties for MCP format
+        let inputSchema = {};
+        if (tool_def.details.inputSchema && tool_def.details.inputSchema._def?.shape) {
+            const shape = typeof tool_def.details.inputSchema._def.shape === 'function' 
+                ? tool_def.details.inputSchema._def.shape() 
+                : tool_def.details.inputSchema._def.shape;
+            inputSchema = shape || {};
+        }
+        
+        server.registerTool(
+            handle,
+            {
+                title: tool_def.details.title,
+                description: tool_def.details.description,
+                inputSchema
+            },
+            async (args) => {
+                const result = await tool_def.run({game, ...args});
+                return {
+                    content: [{
+                        type: 'text',
+                        text: typeof result === 'string' ? result : 
+                              result?.content?.[0]?.text || JSON.stringify(result)
+                    }]
+                };
+            }
+        )
     }
 
     for (const handle in resource_defs) {
         logger.info(`Registering resource: ${handle}`)
         const resource_def = resource_defs[handle]
-        server.registerResource(handle, resource_def.details, ()=>{
-            return resource_def.run({game, ...arguments[0]})
-        })
+        
+        // Extract schema properties for MCP format  
+        let inputSchema = {};
+        if (resource_def.details.inputSchema && resource_def.details.inputSchema._def?.shape) {
+            const shape = typeof resource_def.details.inputSchema._def.shape === 'function' 
+                ? resource_def.details.inputSchema._def.shape() 
+                : resource_def.details.inputSchema._def.shape;
+            inputSchema = shape || {};
+        }
+        
+        server.registerResource(
+            handle,
+            {
+                title: resource_def.details.title,
+                description: resource_def.details.description,
+                inputSchema
+            },
+            async (args) => {
+                const result = await resource_def.run({game, ...args});
+                return {
+                    content: [{
+                        type: 'text', 
+                        text: typeof result === 'string' ? result : 
+                              result?.content?.[0]?.text || JSON.stringify(result)
+                    }]
+                };
+            }
+        )
     }
 
     const app = express();
@@ -48,7 +102,18 @@ async function serve_mcp(game) {
         await server.connect(transport);
         await transport.handleRequest(req, res, req.body);
     });
-    const host = env.mcp_host || '0.0.0.0';
+    let host = env.mcp_host;
+    if (!host) {
+        host = '127.0.0.1';
+    }
+
+    // Node's HTTP server prefers IPv6 when asked to bind to "localhost" on dual-stack hosts.
+    // Resolve it explicitly to an IPv4 loopback address so tools expecting IPv4 keep working.
+    if (host === 'localhost') {
+        host = '127.0.0.1';
+    }
+
+    // Allow explicit IPv6/any-address bindings that the caller provided (e.g. :: or 0.0.0.0).
     const port = Number.isFinite(env.mcp_port) ? env.mcp_port : 6061;
 
     return await new Promise((resolve, reject) => {
