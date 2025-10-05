@@ -1,6 +1,6 @@
 import express from 'express';
 import Logger from '../logger.mjs';
-import { tool_defs, resource_defs } from '../game_framework/ecs_interface.mjs';
+import { tool_defs } from '../game_framework/ecs_interface.mjs';
 import { setupDocs } from './docs.mjs';
 import { ollama_defs, zPromptPayload } from './ollama_defs.mjs';
 import env from '../environment.mjs';
@@ -22,7 +22,7 @@ const formatServerAddress = (server) => {
 };
 
 const createEndpoints = (app, game, defs, basePath) => {
-    // List all available tools/resources
+    // List all available tools
     app.get(`/${basePath}`, (req, res) => {
         const items = Object.entries(defs).map(([handle, def]) => ({
             handle,
@@ -44,7 +44,7 @@ const createEndpoints = (app, game, defs, basePath) => {
                     }
                 }
 
-                // Run the tool/resource
+                // Run the tool
                 const result = await definition.run({ game, ...(req.body || {}) });
                 
                 // Return result
@@ -118,7 +118,6 @@ async function serve_api(game) {
 
     // Create ECS endpoints
     createEndpoints(app, game, tool_defs, 'tools');
-    createEndpoints(app, game, resource_defs, 'resources');
 
     // Setup API documentation
     setupDocs(app, { logger });

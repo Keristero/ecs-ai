@@ -54,14 +54,12 @@ The API is generated dynamically from the MCP tool definitions in `game_framewor
 
 - `GET /health` – service heartbeat
 - `GET /tools` – list available tool handles
-- `GET /resources` – list available resource handles
 
-### Tool & resource execution
+### Tool execution
 
 - `POST /tools/:handle`
-- `POST /resources/:handle`
 
-Provide the same JSON payload you would send through MCP. Zod schemas from each definition validate the request body. Responses echo the handle, a human-friendly `result` string, and the original MCP payload under `raw`.
+Provide the same JSON payload you would send through MCP. Zod schemas from each definition validate the request body. Responses echo the handle and a human-friendly `result` string.
 
 ### Driving the Ollama agent
 
@@ -89,7 +87,7 @@ Response fields include the Ollama reply, the allowed/forbidden tool lists used 
 - `environment.mjs` – centralised environment defaults
 - `game_framework/` – reusable ECS facade and initialiser
 - `examples/` – sample text adventure implementation
-- `mcp_server/` – MCP server wiring that registers tools/resources
+- `mcp_server/` – MCP server wiring that registers tools
 - `api/` – HTTP façade for direct tool access and agent prompting
 - `tests/` – Mocha + Chai suite covering the framework, interface, and API
 

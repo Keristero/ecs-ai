@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { tool_defs, resource_defs } from '../game_framework/ecs_interface.mjs';
+import { tool_defs } from '../game_framework/ecs_interface.mjs';
 import { zPromptPayload } from './ollama_defs.mjs';
 import env from '../environment.mjs';
 
@@ -15,7 +15,7 @@ const generateSwaggerSpec = () => {
         info: {
             title: 'ECS API',
             version: '1.0.0',
-            description: 'REST API for ECS game tools and resources'
+            description: 'REST API for ECS game tools'
         },
         servers: [{
             url: `http://${env.api_host}:${env.api_port}`,
@@ -51,7 +51,6 @@ const generateSwaggerSpec = () => {
 
     // Add tools endpoints
     addCollectionPaths(spec, tool_defs, 'tools');
-    addCollectionPaths(spec, resource_defs, 'resources');
 
     const agentSchemaName = 'AgentPromptInput';
     spec.components.schemas[agentSchemaName] = zodToSwaggerSchema(zPromptPayload);

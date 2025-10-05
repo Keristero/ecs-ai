@@ -143,19 +143,15 @@ describe('API Server', () => {
         const addComponentWithValuesRequest = spec.paths['/tools/addComponentWithValues'].post.requestBody.content['application/json'].schema;
         expect(addComponentWithValuesRequest).to.deep.equal({ $ref: '#/components/schemas/ToolsAddComponentWithValuesInput' });
 
-    const addComponentWithValuesSchema = spec.components.schemas.ToolsAddComponentWithValuesInput;
-    const componentValuesSchema = addComponentWithValuesSchema.properties.component_values;
-    expect(componentValuesSchema.oneOf).to.be.an('array').that.is.not.empty;
+        const addComponentWithValuesSchema = spec.components.schemas.ToolsAddComponentWithValuesInput;
+        const componentValuesSchema = addComponentWithValuesSchema.properties.component_values;
+        expect(componentValuesSchema.type).to.equal('array');
+        expect(componentValuesSchema.items?.type).to.equal('object');
+        expect(componentValuesSchema.items?.properties?.field?.type).to.equal('string');
+        expect(componentValuesSchema.items?.properties?.value?.type).to.equal('number');
+        expect(componentValuesSchema.items?.required).to.include.members(['field', 'value']);
 
-    const objectOption = componentValuesSchema.oneOf.find(option => option.type === 'object');
-    expect(objectOption?.additionalProperties?.type).to.equal('number');
-
-    const arrayOption = componentValuesSchema.oneOf.find(option => option.type === 'array');
-    expect(arrayOption?.items?.type).to.equal('object');
-    expect(arrayOption?.items?.properties?.field?.type).to.equal('string');
-    expect(arrayOption?.items?.properties?.value?.type).to.equal('number');
-
-    const agentPromptRequest = spec.paths['/agent/prompt'].post.requestBody.content['application/json'].schema;
+        const agentPromptRequest = spec.paths['/agent/prompt'].post.requestBody.content['application/json'].schema;
     expect(agentPromptRequest).to.deep.equal({ $ref: '#/components/schemas/AgentPromptInput' });
 
     const agentPromptSchema = spec.components.schemas.AgentPromptInput;

@@ -2,7 +2,6 @@ import { addEntity, addComponent, query, set } from 'bitecs'
 import { z } from "zod";
 
 const tool_defs = {}
-const resource_defs = {}
 
 //helpers
 function get_component_by_name(game,component_name){
@@ -39,9 +38,9 @@ function construct_tool_run_function(func){
 const eid = z.number().int().nonnegative().describe("Entity ID")
 const component_name = z.string().describe("Name of the component to add")
 const component_values = z.array(z.object({
-    prop_name: z.string().describe("Component property name"),
-    prop_value: z.number().describe("Component property value")
-})).describe("Array of {prop_name, prop_value} entries to set on the component")
+    field: z.string().describe("Component property name"),
+    value: z.number().describe("Component property value")
+})).describe("Array of {field, value} entries to set on the component")
 
 //tools
 tool_defs.addEntity = {
@@ -78,11 +77,11 @@ tool_defs.addComponentWithValues = {
     run: construct_tool_run_function(async({game,eid,component_name,component_values})=>{
         const component = get_component_by_name(game,component_name)
 
-        // Convert array of {prop_name, prop_value} into an object mapping
+        // Convert array of {field, value} into an object mapping
         const values = {}
-        (component_values ?? []).forEach(({prop_name, prop_value})=>{
-            if(typeof prop_name === 'string'){
-                values[prop_name] = prop_value
+        component_values.forEach(({field, value})=>{
+            if(typeof field === 'string' && value !== undefined){
+                values[field] = value
             }
         })
 
@@ -132,9 +131,6 @@ tool_defs.queryEntitiesWithComponents = {
     })
 }
 
-//resources
-
 export {
-    tool_defs,
-    resource_defs
+    tool_defs
 }

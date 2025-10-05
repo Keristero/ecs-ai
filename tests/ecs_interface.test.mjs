@@ -2,7 +2,7 @@ import { describe, it, beforeEach } from 'mocha'
 import { expect } from 'chai'
 import path from 'path'
 import { initialize_game } from '../game_framework/framework.mjs'
-import { tool_defs, resource_defs } from '../game_framework/ecs_interface.mjs'
+import { tool_defs } from '../game_framework/ecs_interface.mjs'
 import { addEntity, hasComponent } from 'bitecs'
 
 describe('ECS Interface tools', () => {
@@ -33,7 +33,10 @@ describe('ECS Interface tools', () => {
             game,
             eid,
             component_name: 'Position',
-            component_values: { x: 10, y: 20 }
+            component_values: [
+                { field: 'x', value: 10 },
+                { field: 'y', value: 20 }
+            ]
         })
 
         expect(response.content[0].text).to.contain("Added component 'Position'")
@@ -42,7 +45,7 @@ describe('ECS Interface tools', () => {
         expect(position.y[eid]).to.equal(20)
     })
 
-    it('addComponentWithValues overwrites existing values with plain object input', async () => {
+    it('addComponentWithValues overwrites existing values with array input', async () => {
         // Seed initial values to confirm they get replaced
         position.x[eid] = -1
         position.y[eid] = -1
@@ -51,7 +54,10 @@ describe('ECS Interface tools', () => {
             game,
             eid,
             component_name: 'Position',
-            component_values: { x: 5, y: -3 }
+            component_values: [
+                { field: 'x', value: 5 },
+                { field: 'y', value: -3 }
+            ]
         })
 
         expect(position.x[eid]).to.equal(5)
@@ -72,18 +78,9 @@ describe('ECS Interface tools', () => {
         expect(position.x[eid]).to.equal(12)
         expect(position.y[eid]).to.equal(34)
     })
-})
 
-describe('ECS Interface resources', () => {
-    let game
-
-    beforeEach(async () => {
-        process.env.GAME_LOGIC_FOLDER_PATH = path.resolve('./tests/fixtures')
-        game = await initialize_game()
-    })
-
-    it('listComponents resource returns all available components', async () => {
-        const response = await resource_defs.listComponents.run({
+    it('listComponents tool returns all available components', async () => {
+        const response = await tool_defs.listComponents.run({
             game
         })
 
