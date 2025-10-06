@@ -9,15 +9,15 @@ import {
 } from '../helpers.mjs'
 
 /**
- * Pickup action - player picks up an item
+ * Pickup action - entity picks up an item
  * @param {Object} game - The game instance
  * @param {Object} params - Action parameters
- * @param {number} params.playerId - The player entity ID (optional, defaults to game.playerId)
+ * @param {number} params.actorId - The entity performing the action (optional, defaults to game.playerId)
  * @param {number} params.itemId - The item ID to pick up
  * @returns {Object} Action result with success status and message
  */
 export default function pickup(game, params) {
-    const playerId = params.playerId ?? game.playerId
+    const actorId = params.actorId ?? game.playerId
     const {itemId} = params
     const {world} = game
     const {InRoom, InInventory} = world.relations
@@ -29,17 +29,17 @@ export default function pickup(game, params) {
         return failureResult("Item not found!")
     }
     
-    // Check if item is in the same room as player
-    if (!areInSameRoom(world, playerId, itemId)) {
+    // Check if item is in the same room as actor
+    if (!areInSameRoom(world, actorId, itemId)) {
         return failureResult("That item is not here!")
     }
     
     // Get rooms for transfer
-    const playerRoom = findEntityRoom(world, playerId)
+    const actorRoom = findEntityRoom(world, actorId)
     
-    // Remove item from room and add to player inventory
-    removeComponent(world, itemId, InRoom(playerRoom))
-    addComponent(world, itemId, InInventory(playerId))
+    // Remove item from room and add to actor's inventory
+    removeComponent(world, itemId, InRoom(actorRoom))
+    addComponent(world, itemId, InInventory(actorId))
     
     return successResult("You pick up the item.")
 }

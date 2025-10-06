@@ -15,16 +15,16 @@ import {
  * Look action - get information about the current room
  * @param {Object} game - The game instance
  * @param {Object} params - Action parameters
- * @param {number} params.playerId - The player entity ID (optional, defaults to game.playerId)
+ * @param {number} params.actorId - The entity performing the action (optional, defaults to game.playerId)
  * @returns {Object} Room information including descriptions, items, landmarks, and enemies
  */
 export default function look(game, params) {
-    const playerId = params.playerId ?? game.playerId
+    const actorId = params.actorId ?? game.playerId
     const {world} = game
     const {Item, Landmark, Enemy} = world.components
     
     // Find current room
-    const currentRoom = findEntityRoom(world, playerId)
+    const currentRoom = findEntityRoom(world, actorId)
     
     if (!currentRoom) {
         return failureResult("You are not in any room!")
@@ -59,8 +59,8 @@ export default function look(game, params) {
     const exitData = getRoomExits(world, currentRoom)
     const exits = exitData.map(exit => exit.direction)
     
-    // Get items in player inventory
-    const inventory = getInventoryItems(world, playerId)
+    // Get items in actor's inventory
+    const inventory = getInventoryItems(world, actorId)
     
     return successResult("", {
         roomId,

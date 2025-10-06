@@ -8,21 +8,21 @@ import {
 } from '../helpers.mjs'
 
 /**
- * Move action - player moves in a direction
+ * Move action - entity moves in a direction
  * @param {Object} game - The game instance
  * @param {Object} params - Action parameters
- * @param {number} params.playerId - The player entity ID (optional, defaults to game.playerId)
+ * @param {number} params.actorId - The entity performing the action (optional, defaults to game.playerId)
  * @param {string} params.direction - Direction to move (north, south, east, west)
  * @returns {Object} Action result with success status and room information
  */
 export default function move(game, params) {
-    const playerId = params.playerId ?? game.playerId
+    const actorId = params.actorId ?? game.playerId
     const {direction} = params
     const {world} = game
     const {InRoom} = world.relations
     
     // Find current room
-    const currentRoom = findEntityRoom(world, playerId)
+    const currentRoom = findEntityRoom(world, actorId)
     
     if (!currentRoom) {
         return failureResult("You are not in any room!")
@@ -37,12 +37,12 @@ export default function move(game, params) {
     
     const targetRoom = connectedRooms[0]
     
-    // Move player to new room
-    removeComponent(world, playerId, InRoom(currentRoom))
-    addComponent(world, playerId, InRoom(targetRoom))
+    // Move actor to new room
+    removeComponent(world, actorId, InRoom(currentRoom))
+    addComponent(world, actorId, InRoom(targetRoom))
     
     // Automatically look at the new room
-    const lookResult = look(game, {playerId})
+    const lookResult = look(game, {actorId})
     
     // Add move message to the look result
     return {

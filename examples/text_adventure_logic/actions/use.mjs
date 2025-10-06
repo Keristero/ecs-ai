@@ -13,20 +13,20 @@ import {
  * Generic action that modifies a component field based on the item's Usable properties
  * @param {Object} game - The game instance
  * @param {Object} params - Action parameters
- * @param {number} params.playerId - The player entity ID (optional, defaults to game.playerId)
+ * @param {number} params.actorId - The entity performing the action (optional, defaults to game.playerId)
  * @param {number} params.itemId - The item ID to use
- * @param {number} params.targetId - The target entity ID (optional, defaults to player for self-use)
+ * @param {number} params.targetId - The target entity ID (optional, defaults to actor for self-use)
  * @returns {Object} Action result with success status and message
  */
 export default function use(game, params) {
-    const playerId = params.playerId ?? game.playerId
+    const actorId = params.actorId ?? game.playerId
     let {itemId, targetId} = params
     const {world} = game
     const {InRoom} = world.relations
     const {Usable, Name} = world.components
     
-    // Check if player has the item
-    if (!hasItemInInventory(world, playerId, itemId)) {
+    // Check if actor has the item
+    if (!hasItemInInventory(world, actorId, itemId)) {
         return failureResult("You don't have that item!")
     }
     
@@ -57,7 +57,7 @@ export default function use(game, params) {
     
     // Default to self if no target specified
     if (targetId === undefined) {
-        targetId = playerId
+        targetId = actorId
     }
     
     // Validate target has required component
@@ -70,14 +70,14 @@ export default function use(game, params) {
         return failureResult("That target cannot be affected by this item!")
     }
     
-    // Check if target is in same room as player (if not self)
-    if (targetId !== playerId && !areInSameRoom(world, playerId, targetId)) {
+    // Check if target is in same room as actor (if not self)
+    if (targetId !== actorId && !areInSameRoom(world, actorId, targetId)) {
         return failureResult("That target is not here!")
     }
     
     // Apply the modification
     const itemName = getEntityName(world, itemId) || 'item'
-    const targetName = getEntityName(world, targetId) || (targetId === playerId ? 'yourself' : 'target')
+    const targetName = getEntityName(world, targetId) || (targetId === actorId ? 'yourself' : 'target')
     
     const oldValue = modifyComponent[modifyField][targetId]
     const newValue = oldValue + modifyAmount

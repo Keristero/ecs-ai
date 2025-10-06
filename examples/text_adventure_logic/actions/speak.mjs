@@ -10,55 +10,61 @@ import {
 } from '../helpers.mjs'
 
 /**
- * Speak action - say something in the current room
- * Entities with Ears component in the room will hear the dialogue
+ * Speak action - entity speaks dialogue in current room
+ * Any entities with the Ears component in the same room will be listed as listeners
  * @param {Object} game - The game instance
  * @param {Object} params - Action parameters
- * @param {number} params.playerId - The player entity ID (optional, defaults to game.playerId)
- * @param {string} params.dialogue - What the player wants to say
- * @returns {Object} Action result with listeners who heard the dialogue
+ * @param {number} params.actorId - The entity performing the action (optional, defaults to game.playerId)
+ * @param {string} params.dialogue - The dialogue text to speak
+ * @returns {Object} Action result with room context and listeners
  */
 export default function speak(game, params) {
-    const playerId = params.playerId ?? game.playerId
+    const actorId = params.actorId ?? game.playerId
     const {dialogue} = params
     const {world} = game
     const {Ears} = world.components
     
     // Find current room
-    const currentRoom = findEntityRoom(world, playerId)
+    const currentRoom = findEntityRoom(world, actorId)
     
     if (!currentRoom) {
         return failureResult("You are not in any room!")
     }
     
-    // Get room name for context
-    const roomName = getEntityName(world, currentRoom)
-    
-    // Find all entities in the room with Ears (excluding the speaker)
+    // Get all entities in the room
     const entities_in_room = getEntitiesInRoom(world, currentRoom)
-    const listeners = entities_in_room.filter(e => 
-        e !== playerId && hasComponent(world, e, Ears)
-    )
     
-    // Format listener details
-    const listenerDetails = formatEntitiesDisplay(world, listeners)
+    // Find entities with Ears (can hear), excluding the speaker
+    const listeners = entities_in_room
+        .filter(e => e !== actorId && hasComponent(world, e, Ears))
     
-    // Log to console for debugging
+    // Format listener information
+    const listenerNames = formatEntitiesDisplay(world, listeners)
+    
+    // Get room and speaker names
+    const roomName = getEntityName(world, currentRoom)
+    const speakerName = getEntityName(world, actorId) || 'Unknown'
+    
+    // Log detailed information to console
     console.log('\n=== DIALOGUE ===')
     console.log(`Room: ${roomName}`)
-    console.log(`Speaker: Player (ID: ${playerId})`)
+    console.log(`Speaker: ${speakerName} (ID: ${actorId})`)
     console.log(`Dialogue: "${dialogue}"`)
-    console.log(`Listeners: ${listenerDetails.map(l => l.name).join(', ') || 'none'}`)
+    console.log(`Listeners: ${listeners.length > 0 ? listenerNames.map(l => l.name).join(', ') : 'none'}`)
     console.log('================\n')
     
-    return successResult(`You say: "${dialogue}"`, {
-        dialogue,
-        roomId: currentRoom,
-        roomName,
-        speakerId: playerId,
-        listeners: listenerDetails,
-        listenerCount: listeners.length
-    })
+    return successResult(
+        `You say: "${dialogue}"`,
+        {
+            roomId: currentRoom,
+            roomName,
+            speakerId: actorId,
+            speakerName,
+            dialogue,
+            listeners: listenerNames,
+            listenerCount: listeners.length
+        }
+    )
 }
 
 // Action metadata for dynamic command generation and autocomplete
