@@ -6,8 +6,16 @@ This is a fully functional old school MUD style game that uses ECS architecture 
 
 All game logic is implemented using pure ECS principles with bitECS. Room descriptions can be generated at runtime by AI.
 
-See [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md) for complete details.
-See [text_adventure_README.md](./text_adventure_README.md) for how to run and play.
+📖 **See [text_adventure_README.md](./text_adventure_README.md) for complete documentation** including:
+- Quick start guide
+- Game features and commands
+- Architecture overview
+- Client setup (browser and CLI)
+- API examples
+- How to extend the game
+- Technical implementation details
+
+See [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md) for detailed implementation notes.
 
 ## Architecture
 

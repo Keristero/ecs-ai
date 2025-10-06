@@ -1,5 +1,18 @@
 # Text Adventure Game - Implementation Summary
 
+## 📝 Documentation Guidelines
+
+**Note for AI Assistants (Copilot)**: Each example game should maintain a **single comprehensive README** at the example root level (e.g., `text_adventure_README.md`). This README should consolidate all relevant documentation including:
+- Quick start guide
+- Architecture overview
+- Game features
+- Client setup (browser and CLI)
+- API examples
+- Extension guides
+- Technical details
+
+Sub-directories may have focused technical documents (e.g., ARCHITECTURE.md, REFACTORING.md) but should not duplicate the main README content. Keep documentation DRY (Don't Repeat Yourself).
+
 ## ✅ Completed Implementation
 
 ### 1. ECS Components (examples/text_adventure_logic/components/text_adventure_components.mjs)
