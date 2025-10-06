@@ -1,5 +1,12 @@
 import {query, hasComponent, getComponent} from 'bitecs'
 import {z} from 'zod'
+import {
+    findEntityByName,
+    getAllComponentsData,
+    getEntityName,
+    successResult,
+    failureResult
+} from '../helpers.mjs'
 
 /**
  * Inspect action - get detailed information about any named entity
@@ -14,89 +21,59 @@ export default function inspect(game, params) {
     const {Name} = world.components
     
     // Find entity by name
-    const entities = query(world, [Name])
-    const targetEntity = entities.find(e => {
-        const name = getComponent(world, e, Name)?.value || ''
-        return name.toLowerCase() === params.entityName.toLowerCase()
-    })
+    const targetEntity = findEntityByName(world, params.entityName)
     
     if (!targetEntity) {
-        return {
-            success: false,
-            message: `No entity found with name "${params.entityName}"`
-        }
+        return failureResult(`No entity found with name "${params.entityName}"`)
     }
     
     // Get all components for this entity
-    const entityComponents = {}
-    const componentNames = Object.keys(world.components)
+    const entityComponents = getAllComponentsData(world, targetEntity)
     
-    for (const componentName of componentNames) {
-        const component = world.components[componentName]
-        
-        if (hasComponent(world, targetEntity, component)) {
-            // Get component data using getComponent (triggers onGet observers)
-            const componentData = getComponent(world, targetEntity, component)
-            
-            // Store the component data
-            entityComponents[componentName] = componentData || {}
-        }
-    }
-    
-    // Also check relations
+    // Get relations
     const entityRelations = {}
     if (world.relations) {
         const relationNames = Object.keys(world.relations)
         
         for (const relationName of relationNames) {
             const relation = world.relations[relationName]
-            
-            // Check if this entity has any targets for this relation
-            // We need to check all entities to see if targetEntity relates to them
             const targets = []
             
-            // For each potential target, check if targetEntity has relation to it
-            const allEntities = []
-            for (let i = 0; i < 1000; i++) { // Check first 1000 entity IDs
-                if (world[i]) allEntities.push(i)
-            }
-            
-            for (const potentialTarget of allEntities) {
+            // Check all potential targets (first 1000 entity IDs)
+            for (let potentialTarget = 0; potentialTarget < 1000; potentialTarget++) {
+                if (!world[potentialTarget]) continue
+                
                 try {
                     if (hasComponent(world, targetEntity, relation(potentialTarget))) {
-                        // Get relation data if it has a store
                         const relationStore = relation(potentialTarget)
                         const relationData = {}
                         
-                        // Check if store has fields
+                        // Extract relation store data
                         if (relationStore && typeof relationStore === 'object') {
                             for (const key in relationStore) {
                                 if (Array.isArray(relationStore[key]) && relationStore[key][targetEntity] !== undefined) {
                                     const value = relationStore[key][targetEntity]
-                                    // Try to convert string indices to actual strings
-                                    if (typeof value === 'number' && world.string_store) {
-                                        relationData[key] = world.string_store.getString(value) || value
-                                    } else {
-                                        relationData[key] = value
-                                    }
+                                    // Convert string indices to actual strings
+                                    relationData[key] = typeof value === 'number' && world.string_store
+                                        ? (world.string_store.getString(value) || value)
+                                        : value
                                 }
                             }
                         }
                         
-                        // Get target entity name if it has one
-                        let targetName = potentialTarget
-                        if (hasComponent(world, potentialTarget, Name)) {
-                            targetName = getComponent(world, potentialTarget, Name)?.value || potentialTarget
-                        }
+                        // Get target entity name
+                        const targetName = hasComponent(world, potentialTarget, Name)
+                            ? (getComponent(world, potentialTarget, Name)?.value || potentialTarget)
+                            : potentialTarget
                         
                         targets.push({
                             targetId: potentialTarget,
-                            targetName: targetName,
+                            targetName,
                             data: Object.keys(relationData).length > 0 ? relationData : null
                         })
                     }
                 } catch (e) {
-                    // Relation check failed, skip this target
+                    // Relation check failed, skip
                 }
             }
             
@@ -131,14 +108,12 @@ export default function inspect(game, params) {
     
     summary += '. Full details logged to console.'
     
-    return {
-        success: true,
-        message: summary,
+    return successResult(summary, {
         entityId: targetEntity,
         entityName: params.entityName,
         components: entityComponents,
         relations: entityRelations
-    }
+    })
 }
 
 // Action metadata for dynamic command generation and autocomplete

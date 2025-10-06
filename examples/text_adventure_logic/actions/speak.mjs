@@ -1,5 +1,13 @@
-import {query, hasComponent, getComponent} from 'bitecs'
+import {query, hasComponent} from 'bitecs'
 import {z} from 'zod'
+import {
+    findEntityRoom,
+    getEntitiesInRoom,
+    getEntityName,
+    formatEntitiesDisplay,
+    successResult,
+    failureResult
+} from '../helpers.mjs'
 
 /**
  * Speak action - say something in the current room
@@ -14,42 +22,26 @@ export default function speak(game, params) {
     const playerId = params.playerId ?? game.playerId
     const {dialogue} = params
     const {world} = game
-    const {InRoom} = world.relations
-    const {Room, Ears, Name} = world.components
+    const {Ears} = world.components
     
     // Find current room
-    const rooms = query(world, [Room])
-    const currentRoom = rooms.find(room => {
-        const entities_in_room = query(world, [InRoom(room)])
-        return entities_in_room.includes(playerId)
-    })
+    const currentRoom = findEntityRoom(world, playerId)
     
     if (!currentRoom) {
-        return {success: false, message: "You are not in any room!"}
+        return failureResult("You are not in any room!")
     }
     
     // Get room name for context
-    const roomName = getComponent(world, currentRoom, Name)?.value || `Room ${currentRoom}`
+    const roomName = getEntityName(world, currentRoom)
     
-    // Find all entities in the room with Ears
-    const entities_in_room = query(world, [InRoom(currentRoom)])
-    const listeners = entities_in_room.filter(e => {
-        // Don't include the speaker
-        if (e === playerId) return false
-        // Must have Ears component
-        return hasComponent(world, e, Ears)
-    })
+    // Find all entities in the room with Ears (excluding the speaker)
+    const entities_in_room = getEntitiesInRoom(world, currentRoom)
+    const listeners = entities_in_room.filter(e => 
+        e !== playerId && hasComponent(world, e, Ears)
+    )
     
-    // Get names of listeners
-    const listenerDetails = listeners.map(e => {
-        const name = getComponent(world, e, Name)?.value || `Entity ${e}`
-        const description = getComponent(world, e, world.components.Description)?.value || ''
-        return {
-            id: e,
-            name,
-            description
-        }
-    })
+    // Format listener details
+    const listenerDetails = formatEntitiesDisplay(world, listeners)
     
     // Log to console for debugging
     console.log('\n=== DIALOGUE ===')
@@ -59,16 +51,14 @@ export default function speak(game, params) {
     console.log(`Listeners: ${listenerDetails.map(l => l.name).join(', ') || 'none'}`)
     console.log('================\n')
     
-    return {
-        success: true,
-        message: `You say: "${dialogue}"`,
+    return successResult(`You say: "${dialogue}"`, {
         dialogue,
         roomId: currentRoom,
         roomName,
         speakerId: playerId,
         listeners: listenerDetails,
         listenerCount: listeners.length
-    }
+    })
 }
 
 // Action metadata for dynamic command generation and autocomplete

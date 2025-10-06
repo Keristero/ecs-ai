@@ -1,5 +1,12 @@
 import {query, hasComponent, getComponent, setComponent, removeComponent} from 'bitecs'
 import {z} from 'zod'
+import {
+    findEntityRoom,
+    getEntityName,
+    hasItemInInventory,
+    areInSameRoom,
+    failureResult
+} from '../helpers.mjs'
 
 /**
  * Use action - use an item on a target entity
@@ -15,24 +22,21 @@ export default function use(game, params) {
     const playerId = params.playerId ?? game.playerId
     let {itemId, targetId} = params
     const {world} = game
-    const {InRoom, InInventory} = world.relations
-    const {Item, Usable, Name} = world.components
+    const {InRoom} = world.relations
+    const {Usable, Name} = world.components
     
-    // itemId is the entity ID - find it in player's inventory
-    const items = query(world, [Item, InInventory(playerId)])
-    const item = items.find(i => i === itemId)
-    
-    if (!item) {
-        return {success: false, message: "You don't have that item!"}
+    // Check if player has the item
+    if (!hasItemInInventory(world, playerId, itemId)) {
+        return failureResult("You don't have that item!")
     }
     
     // Check if item has Usable component
-    if (!hasComponent(world, item, Usable)) {
-        return {success: false, message: "That item cannot be used."}
+    if (!hasComponent(world, itemId, Usable)) {
+        return failureResult("That item cannot be used.")
     }
     
     // Get usable data - getComponent triggers onGet observer automatically
-    const usableData = getComponent(world, item, Usable)
+    const usableData = getComponent(world, itemId, Usable)
     const targetComponentName = usableData?.targetComponent
     const modifyComponentName = usableData?.modifyComponent
     const modifyField = usableData?.modifyField
@@ -40,7 +44,7 @@ export default function use(game, params) {
     
     // Validate usable data
     if (!targetComponentName || !modifyComponentName || !modifyField || modifyAmount === undefined) {
-        return {success: false, message: "This item is not properly configured."}
+        return failureResult("This item is not properly configured.")
     }
     
     // Get component references
@@ -48,7 +52,7 @@ export default function use(game, params) {
     const modifyComponent = world.components[modifyComponentName]
     
     if (!targetComponent || !modifyComponent) {
-        return {success: false, message: "This item references unknown components."}
+        return failureResult("This item references unknown components.")
     }
     
     // Default to self if no target specified
@@ -58,35 +62,22 @@ export default function use(game, params) {
     
     // Validate target has required component
     if (!hasComponent(world, targetId, targetComponent)) {
-        return {success: false, message: "That is not a valid target for this item!"}
+        return failureResult("That is not a valid target for this item!")
     }
     
     // Validate target has component to modify
     if (!hasComponent(world, targetId, modifyComponent)) {
-        return {success: false, message: "That target cannot be affected by this item!"}
+        return failureResult("That target cannot be affected by this item!")
     }
     
     // Check if target is in same room as player (if not self)
-    if (targetId !== playerId) {
-        const rooms = query(world, [world.components.Room])
-        const playerRoom = rooms.find(room => {
-            const entities_in_room = query(world, [InRoom(room)])
-            return entities_in_room.includes(playerId)
-        })
-        
-        const targetRoom = rooms.find(room => {
-            const entities_in_room = query(world, [InRoom(room)])
-            return entities_in_room.includes(targetId)
-        })
-        
-        if (playerRoom !== targetRoom) {
-            return {success: false, message: "That target is not here!"}
-        }
+    if (targetId !== playerId && !areInSameRoom(world, playerId, targetId)) {
+        return failureResult("That target is not here!")
     }
     
     // Apply the modification
-    const itemName = getComponent(world, item, Name)?.value || 'item'
-    const targetName = getComponent(world, targetId, Name)?.value || (targetId === playerId ? 'yourself' : 'target')
+    const itemName = getEntityName(world, itemId) || 'item'
+    const targetName = getEntityName(world, targetId) || (targetId === playerId ? 'yourself' : 'target')
     
     const oldValue = modifyComponent[modifyField][targetId]
     const newValue = oldValue + modifyAmount
@@ -95,12 +86,8 @@ export default function use(game, params) {
     // Check for special cases (e.g., death if hitpoints reach 0)
     let extraInfo = {}
     if (modifyComponentName === 'Hitpoints' && modifyField === 'current' && newValue <= 0) {
-        // Target died/destroyed
-        const rooms = query(world, [world.components.Room])
-        const targetRoom = rooms.find(room => {
-            const entities_in_room = query(world, [InRoom(room)])
-            return entities_in_room.includes(targetId)
-        })
+        // Target died/destroyed - remove from room
+        const targetRoom = findEntityRoom(world, targetId)
         if (targetRoom) {
             removeComponent(world, targetId, InRoom(targetRoom))
         }

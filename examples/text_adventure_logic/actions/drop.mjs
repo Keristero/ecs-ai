@@ -1,5 +1,12 @@
-import {query, hasComponent, removeComponent, addComponent} from 'bitecs'
+import {removeComponent, addComponent} from 'bitecs'
 import {z} from 'zod'
+import {
+    validateEntity,
+    findEntityRoom,
+    hasItemInInventory,
+    successResult,
+    failureResult
+} from '../helpers.mjs'
 
 /**
  * Drop action - player drops an item
@@ -16,36 +23,29 @@ export default function drop(game, params) {
     const {InRoom, InInventory} = world.relations
     const {Item} = world.components
     
-    // itemId is the entity ID - check if it exists and has Item component
-    const items = query(world, [Item])
-    const item = items.find(i => i === itemId)
-    
-    if (!item) {
-        return {success: false, message: "Item not found!"}
+    // Validate item exists and has Item component
+    const validation = validateEntity(world, itemId, [Item])
+    if (!validation.valid) {
+        return failureResult("Item not found!")
     }
     
-    // Check if player has the item (is it in their inventory?)
-    const itemsInInventory = query(world, [Item, InInventory(playerId)])
-    if (!itemsInInventory.includes(item)) {
-        return {success: false, message: "You don't have that item!"}
+    // Check if player has the item in inventory
+    if (!hasItemInInventory(world, playerId, itemId)) {
+        return failureResult("You don't have that item!")
     }
     
     // Find player's current room
-    const rooms = query(world, [world.components.Room])
-    const playerRoom = rooms.find(room => {
-        const entities_in_room = query(world, [InRoom(room)])
-        return entities_in_room.includes(playerId)
-    })
+    const playerRoom = findEntityRoom(world, playerId)
     
     if (!playerRoom) {
-        return {success: false, message: "You are not in any room!"}
+        return failureResult("You are not in any room!")
     }
     
     // Remove from inventory and add to room
-    removeComponent(world, item, InInventory(playerId))
-    addComponent(world, item, InRoom(playerRoom))
+    removeComponent(world, itemId, InInventory(playerId))
+    addComponent(world, itemId, InRoom(playerRoom))
     
-    return {success: true, message: `You drop the item.`}
+    return successResult("You drop the item.")
 }
 
 // Action metadata for dynamic command generation and autocomplete

@@ -1,6 +1,11 @@
-import {query, removeComponent, addComponent, getComponent} from 'bitecs'
+import {removeComponent, addComponent} from 'bitecs'
 import look from './look.mjs'
 import {z} from 'zod'
+import {
+    findEntityRoom,
+    findConnectedRoom,
+    failureResult
+} from '../helpers.mjs'
 
 /**
  * Move action - player moves in a direction
@@ -14,45 +19,23 @@ export default function move(game, params) {
     const playerId = params.playerId ?? game.playerId
     const {direction} = params
     const {world} = game
-    const {InRoom, ConnectsTo} = world.relations
-    const {Room} = world.components
+    const {InRoom} = world.relations
     
     // Find current room
-    const rooms = query(world, [Room])
-    const currentRoom = rooms.find(room => {
-        const entities_in_room = query(world, [InRoom(room)])
-        return entities_in_room.includes(playerId)
-    })
+    const currentRoom = findEntityRoom(world, playerId)
     
     if (!currentRoom) {
-        return {success: false, message: "You are not in any room!"}
+        return failureResult("You are not in any room!")
     }
     
-    // Find connected rooms from current room
-    // Query all rooms that the current room ConnectsTo
-    const connectedRooms = query(world, [Room])
-        .filter(room => {
-            // Check if currentRoom has a ConnectsTo relation targeting this room
-            const hasRelation = query(world, [ConnectsTo(room)]).includes(currentRoom)
-            if (!hasRelation) return false
-            
-            // Get the direction from the relation data (stored as string index)
-            const directionIndex = ConnectsTo(room).direction[currentRoom]
-            if (directionIndex === undefined) return false
-            
-            const roomDirection = world.string_store.getString(directionIndex)
-            return roomDirection === direction
-        })
+    // Find connected room in the specified direction
+    const connectedRooms = findConnectedRoom(world, currentRoom, direction)
     
     if (connectedRooms.length === 0) {
-        return {success: false, message: `There is no exit to the ${direction}.`}
+        return failureResult(`There is no exit to the ${direction}.`)
     }
     
     const targetRoom = connectedRooms[0]
-    
-    if (!targetRoom) {
-        return {success: false, message: "The destination room does not exist!"}
-    }
     
     // Move player to new room
     removeComponent(world, playerId, InRoom(currentRoom))

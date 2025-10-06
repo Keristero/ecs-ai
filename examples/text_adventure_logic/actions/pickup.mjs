@@ -1,5 +1,12 @@
-import {query, hasComponent, removeComponent, addComponent} from 'bitecs'
+import {removeComponent, addComponent} from 'bitecs'
 import {z} from 'zod'
+import {
+    validateEntity,
+    findEntityRoom,
+    areInSameRoom,
+    successResult,
+    failureResult
+} from '../helpers.mjs'
 
 /**
  * Pickup action - player picks up an item
@@ -16,35 +23,25 @@ export default function pickup(game, params) {
     const {InRoom, InInventory} = world.relations
     const {Item} = world.components
     
-    // itemId is the entity ID - check if it exists and has Item component
-    const items = query(world, [Item])
-    const item = items.find(i => i === itemId)
-    
-    if (!item) {
-        return {success: false, message: "Item not found!"}
+    // Validate item exists and has Item component
+    const validation = validateEntity(world, itemId, [Item])
+    if (!validation.valid) {
+        return failureResult("Item not found!")
     }
     
     // Check if item is in the same room as player
-    const rooms = query(world, [world.components.Room])
-    const playerRoom = rooms.find(room => {
-        const entities_in_room = query(world, [InRoom(room)])
-        return entities_in_room.includes(playerId)
-    })
-    
-    const itemRoom = rooms.find(room => {
-        const entities_in_room = query(world, [InRoom(room)])
-        return entities_in_room.includes(item)
-    })
-    
-    if (playerRoom !== itemRoom) {
-        return {success: false, message: "That item is not here!"}
+    if (!areInSameRoom(world, playerId, itemId)) {
+        return failureResult("That item is not here!")
     }
     
-    // Remove item from room and add to player inventory
-    removeComponent(world, item, InRoom(playerRoom))
-    addComponent(world, item, InInventory(playerId))
+    // Get rooms for transfer
+    const playerRoom = findEntityRoom(world, playerId)
     
-    return {success: true, message: `You pick up the item.`}
+    // Remove item from room and add to player inventory
+    removeComponent(world, itemId, InRoom(playerRoom))
+    addComponent(world, itemId, InInventory(playerId))
+    
+    return successResult("You pick up the item.")
 }
 
 // Action metadata for dynamic command generation and autocomplete
