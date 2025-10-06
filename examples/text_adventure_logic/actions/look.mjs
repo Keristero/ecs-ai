@@ -7,12 +7,14 @@ import {
     getRoomExits,
     getEntityName,
     formatEntitiesDisplay,
+    validateComponentForAction,
     successResult,
     failureResult
 } from '../helpers.mjs'
 
 /**
  * Look action - get information about the current room
+ * Requires: Actor must have Eyes component with health >= 0.5
  * @param {Object} game - The game instance
  * @param {Object} params - Action parameters
  * @param {number} params.actorId - The entity performing the action (optional, defaults to game.playerId)
@@ -21,7 +23,13 @@ import {
 export default function look(game, params) {
     const actorId = params.actorId ?? game.playerId
     const {world} = game
-    const {Item, Landmark, Enemy} = world.components
+    const {Item, Landmark, Enemy, Eyes} = world.components
+    
+    // Validate actor has functional Eyes
+    const eyesValidation = validateComponentForAction(world, actorId, Eyes, 'Eyes', 'look')
+    if (!eyesValidation.valid) {
+        return failureResult(eyesValidation.error)
+    }
     
     // Find current room
     const currentRoom = findEntityRoom(world, actorId)
@@ -62,7 +70,13 @@ export default function look(game, params) {
     // Get items in actor's inventory
     const inventory = getInventoryItems(world, actorId)
     
-    return successResult("", {
+    // Build message with warning if Eyes impaired
+    let message = ""
+    if (eyesValidation.warning) {
+        message = eyesValidation.warning
+    }
+    
+    return successResult(message, {
         roomId,
         roomName,
         roomDescription: roomDesc,

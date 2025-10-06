@@ -4,12 +4,14 @@ import {
     validateEntity,
     findEntityRoom,
     hasItemInInventory,
+    validateComponentForAction,
     successResult,
     failureResult
 } from '../helpers.mjs'
 
 /**
  * Drop action - entity drops an item
+ * Requires: Actor must have Hands component with health >= 0.5
  * @param {Object} game - The game instance
  * @param {Object} params - Action parameters
  * @param {number} params.actorId - The entity performing the action (optional, defaults to game.playerId)
@@ -21,7 +23,13 @@ export default function drop(game, params) {
     const {itemId} = params
     const {world} = game
     const {InRoom, InInventory} = world.relations
-    const {Item} = world.components
+    const {Item, Hands} = world.components
+    
+    // Validate actor has functional Hands
+    const handsValidation = validateComponentForAction(world, actorId, Hands, 'Hands', 'drop items')
+    if (!handsValidation.valid) {
+        return failureResult(handsValidation.error)
+    }
     
     // Validate item exists and has Item component
     const validation = validateEntity(world, itemId, [Item])
@@ -45,7 +53,13 @@ export default function drop(game, params) {
     removeComponent(world, itemId, InInventory(actorId))
     addComponent(world, itemId, InRoom(actorRoom))
     
-    return successResult("You drop the item.")
+    // Build message with warning if Hands impaired
+    let message = "You drop the item."
+    if (handsValidation.warning) {
+        message += ` (${handsValidation.warning})`
+    }
+    
+    return successResult(message)
 }
 
 // Action metadata for dynamic command generation and autocomplete

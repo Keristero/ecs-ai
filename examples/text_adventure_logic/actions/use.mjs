@@ -5,12 +5,14 @@ import {
     getEntityName,
     hasItemInInventory,
     areInSameRoom,
+    validateComponentForAction,
     failureResult
 } from '../helpers.mjs'
 
 /**
  * Use action - use an item on a target entity
  * Generic action that modifies a component field based on the item's Usable properties
+ * Requires: Actor must have Hands component with health >= 0.5
  * @param {Object} game - The game instance
  * @param {Object} params - Action parameters
  * @param {number} params.actorId - The entity performing the action (optional, defaults to game.playerId)
@@ -23,7 +25,13 @@ export default function use(game, params) {
     let {itemId, targetId} = params
     const {world} = game
     const {InRoom} = world.relations
-    const {Usable, Name} = world.components
+    const {Usable, Name, Hands} = world.components
+    
+    // Validate actor has functional Hands
+    const handsValidation = validateComponentForAction(world, actorId, Hands, 'Hands', 'use items')
+    if (!handsValidation.valid) {
+        return failureResult(handsValidation.error)
+    }
     
     // Check if actor has the item
     if (!hasItemInInventory(world, actorId, itemId)) {
@@ -98,9 +106,16 @@ export default function use(game, params) {
     const action = modifyAmount > 0 ? 'increased' : 'decreased'
     const absoluteAmount = Math.abs(modifyAmount)
     
+    let message = `You use the ${itemName} on ${targetName}. ${modifyComponentName}.${modifyField} ${action} by ${absoluteAmount} (${oldValue} → ${newValue})`
+    
+    // Add warning if Hands impaired
+    if (handsValidation.warning) {
+        message += ` (${handsValidation.warning})`
+    }
+    
     return {
         success: true,
-        message: `You use the ${itemName} on ${targetName}. ${modifyComponentName}.${modifyField} ${action} by ${absoluteAmount} (${oldValue} → ${newValue})`,
+        message,
         itemId,
         itemName,
         targetId,

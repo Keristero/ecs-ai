@@ -1,4 +1,4 @@
-import {query, hasComponent} from 'bitecs'
+import {query, hasComponent, getComponent} from 'bitecs'
 import {z} from 'zod'
 import {
     findEntityRoom,
@@ -12,6 +12,7 @@ import {
 /**
  * Speak action - entity speaks dialogue in current room
  * Any entities with the Ears component in the same room will be listed as listeners
+ * Requires: Actor must have Attributes component with intelligence >= 2
  * @param {Object} game - The game instance
  * @param {Object} params - Action parameters
  * @param {number} params.actorId - The entity performing the action (optional, defaults to game.playerId)
@@ -22,7 +23,20 @@ export default function speak(game, params) {
     const actorId = params.actorId ?? game.playerId
     const {dialogue} = params
     const {world} = game
-    const {Ears} = world.components
+    const {Ears, Attributes} = world.components
+    
+    // Check if actor has Attributes component
+    if (!hasComponent(world, actorId, Attributes)) {
+        return failureResult("Cannot speak: entity lacks Attributes component")
+    }
+    
+    // Get actor's intelligence
+    const attributes = getComponent(world, actorId, Attributes)
+    const intelligence = attributes?.intelligence ?? 0
+    
+    if (intelligence < 2) {
+        return failureResult(`Cannot speak: intelligence too low (${intelligence}, needs 2+)`)
+    }
     
     // Find current room
     const currentRoom = findEntityRoom(world, actorId)

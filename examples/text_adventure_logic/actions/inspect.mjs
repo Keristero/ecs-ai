@@ -4,6 +4,7 @@ import {
     findEntityByName,
     getAllComponentsData,
     getEntityName,
+    validateComponentForAction,
     successResult,
     failureResult
 } from '../helpers.mjs'
@@ -11,14 +12,23 @@ import {
 /**
  * Inspect action - get detailed information about any named entity
  * Shows all component values for the entity
+ * Requires: Actor must have Eyes component with health >= 0.5
  * @param {Object} game - The game instance
  * @param {Object} params - Action parameters
+ * @param {number} params.actorId - The entity performing the action (optional, defaults to game.playerId)
  * @param {string} params.entityName - The name of the entity to inspect
  * @returns {Object} Detailed component information about the entity
  */
 export default function inspect(game, params) {
+    const actorId = params.actorId ?? game.playerId
     const {world} = game
-    const {Name} = world.components
+    const {Name, Eyes} = world.components
+    
+    // Validate actor has functional Eyes
+    const eyesValidation = validateComponentForAction(world, actorId, Eyes, 'Eyes', 'inspect')
+    if (!eyesValidation.valid) {
+        return failureResult(eyesValidation.error)
+    }
     
     // Find entity by name
     const targetEntity = findEntityByName(world, params.entityName)
@@ -30,22 +40,24 @@ export default function inspect(game, params) {
     // Get all components for this entity
     const entityComponents = getAllComponentsData(world, targetEntity)
     
-    // Get relations
+    // Get relations - both outgoing (from this entity) and incoming (to this entity)
     const entityRelations = {}
     if (world.relations) {
         const relationNames = Object.keys(world.relations)
         
         for (const relationName of relationNames) {
             const relation = world.relations[relationName]
-            const targets = []
+            const outgoingTargets = []
+            const incomingSubjects = []
             
-            // Check all potential targets (first 1000 entity IDs)
-            for (let potentialTarget = 0; potentialTarget < 1000; potentialTarget++) {
-                if (!world[potentialTarget]) continue
+            // Check all potential entities (first 1000 entity IDs)
+            for (let potentialEntityId = 0; potentialEntityId < 1000; potentialEntityId++) {
+                if (!world[potentialEntityId]) continue
                 
                 try {
-                    if (hasComponent(world, targetEntity, relation(potentialTarget))) {
-                        const relationStore = relation(potentialTarget)
+                    // Check outgoing: targetEntity has relation to potentialEntityId
+                    if (hasComponent(world, targetEntity, relation(potentialEntityId))) {
+                        const relationStore = relation(potentialEntityId)
                         const relationData = {}
                         
                         // Extract relation store data
@@ -62,13 +74,43 @@ export default function inspect(game, params) {
                         }
                         
                         // Get target entity name
-                        const targetName = hasComponent(world, potentialTarget, Name)
-                            ? (getComponent(world, potentialTarget, Name)?.value || potentialTarget)
-                            : potentialTarget
+                        const targetName = hasComponent(world, potentialEntityId, Name)
+                            ? (getComponent(world, potentialEntityId, Name)?.value || potentialEntityId)
+                            : potentialEntityId
                         
-                        targets.push({
-                            targetId: potentialTarget,
+                        outgoingTargets.push({
+                            targetId: potentialEntityId,
                             targetName,
+                            data: Object.keys(relationData).length > 0 ? relationData : null
+                        })
+                    }
+                    
+                    // Check incoming: potentialEntityId has relation to targetEntity
+                    if (hasComponent(world, potentialEntityId, relation(targetEntity))) {
+                        const relationStore = relation(targetEntity)
+                        const relationData = {}
+                        
+                        // Extract relation store data
+                        if (relationStore && typeof relationStore === 'object') {
+                            for (const key in relationStore) {
+                                if (Array.isArray(relationStore[key]) && relationStore[key][potentialEntityId] !== undefined) {
+                                    const value = relationStore[key][potentialEntityId]
+                                    // Convert string indices to actual strings
+                                    relationData[key] = typeof value === 'number' && world.string_store
+                                        ? (world.string_store.getString(value) || value)
+                                        : value
+                                }
+                            }
+                        }
+                        
+                        // Get subject entity name
+                        const subjectName = hasComponent(world, potentialEntityId, Name)
+                            ? (getComponent(world, potentialEntityId, Name)?.value || potentialEntityId)
+                            : potentialEntityId
+                        
+                        incomingSubjects.push({
+                            subjectId: potentialEntityId,
+                            subjectName,
                             data: Object.keys(relationData).length > 0 ? relationData : null
                         })
                     }
@@ -77,8 +119,15 @@ export default function inspect(game, params) {
                 }
             }
             
-            if (targets.length > 0) {
-                entityRelations[relationName] = targets
+            // Add outgoing relations
+            if (outgoingTargets.length > 0) {
+                entityRelations[relationName] = outgoingTargets
+            }
+            
+            // Add incoming relations with a special naming to distinguish them
+            if (incomingSubjects.length > 0) {
+                // For inventory, this shows "what items are in this entity's inventory"
+                entityRelations[`${relationName}_incoming`] = incomingSubjects
             }
         }
     }
@@ -107,6 +156,11 @@ export default function inspect(game, params) {
     }
     
     summary += '. Full details logged to console.'
+    
+    // Add warning if Eyes impaired
+    if (eyesValidation.warning) {
+        summary += ` (${eyesValidation.warning})`
+    }
     
     return successResult(summary, {
         entityId: targetEntity,

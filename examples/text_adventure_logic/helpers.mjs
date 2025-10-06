@@ -238,6 +238,68 @@ export function isInRoom(world, roomId, entityId) {
     return entities.includes(entityId)
 }
 
+/**
+ * Check if a component with health is functional (health >= 0.5)
+ * @param {Object} world - The ECS world
+ * @param {number} entityId - Entity ID
+ * @param {Object} component - Component to check (e.g., Ears, Eyes, Hands)
+ * @returns {{functional: boolean, health: number}} Health status
+ */
+export function checkComponentHealth(world, entityId, component) {
+    if (!hasComponent(world, entityId, component)) {
+        return {functional: false, health: 0, reason: 'missing'}
+    }
+    
+    const componentData = getComponent(world, entityId, component)
+    const health = componentData?.health ?? 1.0
+    
+    return {
+        functional: health >= 0.5,
+        health,
+        reason: health < 0.5 ? 'impaired' : 'healthy'
+    }
+}
+
+/**
+ * Validate entity has required sensory/physical component and it's functional
+ * @param {Object} world - The ECS world
+ * @param {number} entityId - Entity ID
+ * @param {Object} component - Component to validate (e.g., Ears, Eyes, Hands)
+ * @param {string} componentName - Human-readable component name
+ * @param {string} actionName - Name of the action requiring this component
+ * @returns {{valid: boolean, warning: string|null, error: string|null}} Validation result
+ */
+export function validateComponentForAction(world, entityId, component, componentName, actionName) {
+    const healthStatus = checkComponentHealth(world, entityId, component)
+    
+    if (healthStatus.reason === 'missing') {
+        return {
+            valid: false,
+            warning: null,
+            error: `Cannot ${actionName}: entity lacks ${componentName} component`
+        }
+    }
+    
+    if (!healthStatus.functional) {
+        return {
+            valid: false,
+            warning: null,
+            error: `Cannot ${actionName}: ${componentName} too damaged (${(healthStatus.health * 100).toFixed(0)}% health, needs 50%+)`
+        }
+    }
+    
+    // Functional but slightly impaired
+    if (healthStatus.health < 0.75) {
+        return {
+            valid: true,
+            warning: `${componentName} partially impaired (${(healthStatus.health * 100).toFixed(0)}% health)`,
+            error: null
+        }
+    }
+    
+    return {valid: true, warning: null, error: null}
+}
+
 // ==================== Format Helpers ====================
 
 /**

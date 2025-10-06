@@ -4,7 +4,7 @@ import {addPrefab, addComponent, set} from 'bitecs'
  * Health Potion item prefab
  * A consumable that restores health
  */
-export default function create_health_potion_prefab(world) {
+export default function create_health_potion_prefab(world, prefabs) {
     const {Item, Name, Description, Usable} = world.components
     
     const HealthPotion = addPrefab(world)

@@ -113,7 +113,8 @@ async function initialize_game(){
         let prefab_creator = prefabs[name]
         if(typeof prefab_creator === 'function'){
             game.prefabs = game.prefabs || {}
-            game.prefabs[name] = prefab_creator(game.world)
+            // Pass both world and the prefabs object so prefabs can reference other prefabs
+            game.prefabs[name] = prefab_creator(game.world, game.prefabs)
             logger.info(`Initialized prefab: ${name}`)
         }else{
             logger.warn(`Prefab ${name} is not a function, skipping initialization`)
