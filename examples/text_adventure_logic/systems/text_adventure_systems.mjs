@@ -1,10 +1,5 @@
-import {query, createRelation} from 'bitecs'
-
-// Relation: entity is located in a room
-const InRoom = createRelation()
-
-// Relation: entity is in another entity's inventory
-const InInventory = createRelation()
+import {query} from 'bitecs'
+import {InRoom, InInventory} from '../relations/text_adventure_relations.mjs'
 
 // Enemy AI turn system - runs after player actions
 const enemy_turn_system = (game) => {

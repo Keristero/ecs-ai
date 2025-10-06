@@ -1,10 +1,10 @@
 import {addEntity, addComponent, set, IsA} from 'bitecs'
-import {InRoom} from './systems/text_adventure_systems.mjs'
+import {InRoom, ConnectsTo} from './relations/text_adventure_relations.mjs'
 
 // Setup initial game world
 function setup_world(game) {
     const {world, prefabs} = game
-    const {Room, Item, Landmark, Enemy, Player, Connection, Hitpoints, Attributes, Name, Description} = world.components
+    const {Room, Item, Landmark, Enemy, Player, Hitpoints, Attributes, Name, Description} = world.components
     
     // Store InRoom on world.systems for prefabs to access
     world.systems = {InRoom}
@@ -12,39 +12,34 @@ function setup_world(game) {
     // Create rooms
     const room1 = addEntity(world)
     addComponent(world, room1, Room)
-    Room.id[room1] = 1
     addComponent(world, room1, set(Name, {value: "Starting Cave"}))
     addComponent(world, room1, set(Description, {value: "A dark, damp cave with rough stone walls."}))
     
     const room2 = addEntity(world)
     addComponent(world, room2, Room)
-    Room.id[room2] = 2
     addComponent(world, room2, set(Name, {value: "Forest Path"}))
     addComponent(world, room2, set(Description, {value: "A narrow path through a dense forest."}))
     
     const room3 = addEntity(world)
     addComponent(world, room3, Room)
-    Room.id[room3] = 3
     addComponent(world, room3, set(Name, {value: "Ancient Ruins"}))
     addComponent(world, room3, set(Description, {value: "Crumbling stone structures covered in moss."}))
     
-    // Create connections between rooms
-    const conn1 = addEntity(world)
-    addComponent(world, conn1, set(Connection, {from: 1, to: 2, direction: "north"}))
+    // Create connections between rooms using ConnectsTo relation
+    // The direction is stored in the relation data as a string index
+    const northIdx = world.string_store.addString("north")
+    const southIdx = world.string_store.addString("south")
+    const eastIdx = world.string_store.addString("east")
+    const westIdx = world.string_store.addString("west")
     
-    const conn2 = addEntity(world)
-    addComponent(world, conn2, set(Connection, {from: 2, to: 1, direction: "south"}))
-    
-    const conn3 = addEntity(world)
-    addComponent(world, conn3, set(Connection, {from: 2, to: 3, direction: "east"}))
-    
-    const conn4 = addEntity(world)
-    addComponent(world, conn4, set(Connection, {from: 3, to: 2, direction: "west"}))
+    addComponent(world, room1, set(ConnectsTo(room2), {direction: northIdx}))
+    addComponent(world, room2, set(ConnectsTo(room1), {direction: southIdx}))
+    addComponent(world, room2, set(ConnectsTo(room3), {direction: eastIdx}))
+    addComponent(world, room3, set(ConnectsTo(room2), {direction: westIdx}))
     
     // Create landmarks
     const landmark1 = addEntity(world)
     addComponent(world, landmark1, Landmark)
-    Landmark.id[landmark1] = 1
     addComponent(world, landmark1, set(Name, {value: "ancient altar"}))
     addComponent(world, landmark1, InRoom(room3))
     
@@ -69,8 +64,7 @@ function setup_world(game) {
     // Create player
     const player = addEntity(world)
     addComponent(world, player, Player)
-    Player.id[player] = 1
-    Player.respawnRoom[player] = 1
+    Player.respawnRoom[player] = room1  // entity ID of respawn room
     addComponent(world, player, Hitpoints)
     Hitpoints.max[player] = 100
     Hitpoints.current[player] = 100

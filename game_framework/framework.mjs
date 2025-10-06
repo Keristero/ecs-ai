@@ -52,6 +52,21 @@ async function initialize_game(){
     let components_folder = path.resolve(baseGameLogicPath, 'components')
     const components = await _import_all_exports_from_directory(components_folder)
 
+    // Import relations if they exist
+    let relations_folder = path.resolve(baseGameLogicPath, 'relations')
+    try {
+        const relations = await _import_all_exports_from_directory(relations_folder)
+        // Add relations to components so they can be used with observers
+        Object.assign(components, relations)
+        logger.info(`Imported ${Object.keys(relations).length} relations`)
+    } catch (error) {
+        logger.warn(`No relations folder found:`, error.message)
+    }
+
+    // Import systems (for systems like enemy_turn_system)
+    let systems_folder = path.resolve(baseGameLogicPath, 'systems')
+    const systems = await _import_all_exports_from_directory(systems_folder)
+
     const updateModulePath = path.resolve(baseGameLogicPath, 'systems', 'update.mjs')
     const {update} = await import(updateModulePath)
     if(!update){
@@ -82,6 +97,7 @@ async function initialize_game(){
     
     // If the game exports COMPONENT_METADATA, setup observers automatically
     // This must happen BEFORE prefabs are loaded so that set() calls trigger onSet observers
+    // COMPONENT_METADATA can include both components and relations
     if (components.COMPONENT_METADATA) {
         logger.info(`Setting up component observers from COMPONENT_METADATA`)
         setupComponentObservers(game.world, components.COMPONENT_METADATA)

@@ -1,5 +1,5 @@
-import {query, hasComponent, removeComponent, getComponent} from 'bitecs'
-import {InRoom, InInventory} from '../systems/text_adventure_systems.mjs'
+import {query, hasComponent, getComponent, setComponent} from 'bitecs'
+import {InRoom, InInventory} from '../relations/text_adventure_relations.mjs'
 import {z} from 'zod'
 
 /**
@@ -18,9 +18,9 @@ export default function use(game, params) {
     const {world} = game
     const {Item, Usable, Name} = world.components
     
-    // Find the item in player's inventory
+    // itemId is the entity ID - find it in player's inventory
     const items = query(world, [Item, InInventory(playerId)])
-    const item = items.find(i => Item.id[i] === itemId)
+    const item = items.find(i => i === itemId)
     
     if (!item) {
         return {success: false, message: "You don't have that item!"}

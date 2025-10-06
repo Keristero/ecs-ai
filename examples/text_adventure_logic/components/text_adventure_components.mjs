@@ -31,31 +31,15 @@ const COMPONENT_METADATA = {
             current: z.number().int().nonnegative()
         })
     },
-    Connection: {
-        stringFields: ['direction'],
-        numberFields: ['from', 'to'],
-        schema: z.object({
-            direction: z.string(),
-            from: z.number().int().nonnegative(),
-            to: z.number().int().nonnegative()
-        })
-    },
     Item: {
-        numberFields: ['id'],
-        schema: z.object({
-            id: z.number().int().nonnegative()
-        })
+        schema: z.object({})
     },
     Landmark: {
-        numberFields: ['id'],
-        schema: z.object({
-            id: z.number().int().nonnegative()
-        })
+        schema: z.object({})
     },
     Player: {
-        numberFields: ['id', 'respawnRoom'],
+        numberFields: ['respawnRoom'],
         schema: z.object({
-            id: z.number().int().nonnegative(),
             respawnRoom: z.number().int().nonnegative()
         })
     },
@@ -75,6 +59,13 @@ const COMPONENT_METADATA = {
             strength: z.number().int().nonnegative(),
             dexterity: z.number().int().nonnegative(),
             intelligence: z.number().int().nonnegative()
+        })
+    },
+    // Relations metadata
+    ConnectsTo: {
+        stringFields: ['direction'],
+        schema: z.object({
+            direction: z.string()
         })
     }
 }
@@ -102,28 +93,14 @@ const Attributes = {
 // Game-specific components
 const Enemy = {}
 
-const Room = {
-    id: [], // unique room id
-}
+const Room = {}
 
-const Item = {
-    id: [], // unique item id
-}
+const Item = {}
 
-const Landmark = {
-    id: [], // unique landmark id
-}
+const Landmark = {}
 
 const Player = {
-    id: [], // unique player id
-    respawnRoom: [], // room id to respawn in
-}
-
-// Connections between rooms (directional)
-const Connection = {
-    from: [], // room id
-    to: [],   // room id
-    direction: [], // string index for direction (e.g. 'north', 'south', etc.)
+    respawnRoom: [], // entity id of room to respawn in
 }
 
 // Usable items - defines what an item can target and how it modifies them
@@ -144,7 +121,6 @@ export {
     Item,
     Landmark,
     Player,
-    Connection,
     Usable,
     COMPONENT_METADATA
 }

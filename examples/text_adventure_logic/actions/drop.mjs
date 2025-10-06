@@ -1,5 +1,5 @@
-import {query, addComponent, removeComponent} from 'bitecs'
-import {InRoom, InInventory} from '../systems/text_adventure_systems.mjs'
+import {query, hasComponent, removeComponent, addComponent} from 'bitecs'
+import {InRoom, InInventory} from '../relations/text_adventure_relations.mjs'
 import {z} from 'zod'
 
 /**
@@ -16,8 +16,9 @@ export default function drop(game, params) {
     const {world} = game
     const {Item} = world.components
     
+    // itemId is the entity ID - check if it exists and has Item component
     const items = query(world, [Item])
-    const item = items.find(i => Item.id[i] === itemId)
+    const item = items.find(i => i === itemId)
     
     if (!item) {
         return {success: false, message: "Item not found!"}

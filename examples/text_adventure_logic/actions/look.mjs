@@ -1,5 +1,5 @@
 import {query, hasComponent, getComponent} from 'bitecs'
-import {InRoom, InInventory} from '../systems/text_adventure_systems.mjs'
+import {InRoom, InInventory, ConnectsTo} from '../relations/text_adventure_relations.mjs'
 import {z} from 'zod'
 
 /**
@@ -12,7 +12,7 @@ import {z} from 'zod'
 export default function look(game, params) {
     const playerId = params.playerId ?? game.playerId
     const {world} = game
-    const {Room, Item, Landmark, Enemy, Name, Description, Connection} = world.components
+    const {Room, Item, Landmark, Enemy, Name, Description} = world.components
     
     // Find current room
     const rooms = query(world, [Room])
@@ -25,7 +25,8 @@ export default function look(game, params) {
         return {success: false, message: "You are not in any room!"}
     }
     
-    const roomId = Room.id[currentRoom]
+    // Use entity ID directly - no more Room.id field
+    const roomId = currentRoom
     const roomName = getComponent(world, currentRoom, Name)?.value || ''
     const roomDescription = getComponent(world, currentRoom, Description)?.value || ''
     
@@ -36,11 +37,22 @@ export default function look(game, params) {
     const landmarks = entities_in_room.filter(e => hasComponent(world, e, Landmark))
     const enemies = entities_in_room.filter(e => hasComponent(world, e, Enemy))
     
-    // Get available exits/connections from this room
-    const connections = query(world, [Connection])
-    const exits = connections
-        .filter(conn => Connection.from[conn] === roomId)
-        .map(conn => getComponent(world, conn, Connection)?.direction || '')
+    // Get available exits by finding all rooms this room connects to
+    // Query all rooms and check if currentRoom has ConnectsTo relation with them
+    const allRooms = query(world, [Room])
+    const exits = []
+    
+    for (const targetRoom of allRooms) {
+        // Check if currentRoom has a ConnectsTo(targetRoom) relation
+        const entitiesConnectingToTarget = query(world, [ConnectsTo(targetRoom)])
+        if (entitiesConnectingToTarget.includes(currentRoom)) {
+            // Use getComponent to get the direction (will use observer if available)
+            const connectionData = getComponent(world, currentRoom, ConnectsTo(targetRoom))
+            if (connectionData?.direction) {
+                exits.push(connectionData.direction)
+            }
+        }
+    }
     
     // Get items in player inventory using InInventory relation
     const inventory = query(world, [Item, InInventory(playerId)])
@@ -52,15 +64,17 @@ export default function look(game, params) {
         roomDescription,
         exits,
         items: items.map(e => {
+            // Use entity ID directly - no more Item.id field
             return {
-                id: getComponent(world, e, Item)?.id,
+                id: e,
                 name: getComponent(world, e, Name)?.value || '',
                 description: getComponent(world, e, Description)?.value || ''
             }
         }),
         landmarks: landmarks.map(e => {
+            // Use entity ID directly - no more Landmark.id field
             return {
-                id: getComponent(world, e, Landmark)?.id,
+                id: e,
                 name: getComponent(world, e, Name)?.value || '',
                 description: getComponent(world, e, Description)?.value || ''
             }
@@ -73,8 +87,9 @@ export default function look(game, params) {
             }
         }),
         inventory: inventory.map(e => {
+            // Use entity ID directly - no more Item.id field
             return {
-                id: getComponent(world, e, Item)?.id,
+                id: e,
                 name: getComponent(world, e, Name)?.value || '',
                 description: getComponent(world, e, Description)?.value || ''
             }

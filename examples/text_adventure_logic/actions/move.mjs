@@ -1,5 +1,5 @@
-import {query, removeComponent, addComponent} from 'bitecs'
-import {InRoom} from '../systems/text_adventure_systems.mjs'
+import {query, removeComponent, addComponent, getComponent} from 'bitecs'
+import {InRoom, ConnectsTo} from '../relations/text_adventure_relations.mjs'
 import look from './look.mjs'
 import {z} from 'zod'
 
@@ -15,7 +15,7 @@ export default function move(game, params) {
     const playerId = params.playerId ?? game.playerId
     const {direction} = params
     const {world} = game
-    const {Connection, Room} = world.components
+    const {Room} = world.components
     
     // Find current room
     const rooms = query(world, [Room])
@@ -28,21 +28,24 @@ export default function move(game, params) {
         return {success: false, message: "You are not in any room!"}
     }
     
-    // Find connection in the given direction
-    const connections = query(world, [Connection])
-    const connection = connections.find(conn => {
-        const connDirection = world.string_store.getString(Connection.direction[conn])
-        return Connection.from[conn] === Room.id[currentRoom] && 
-               connDirection === direction
-    })
+    // Find connected rooms from current room
+    // Query all rooms that the current room ConnectsTo
+    const connectedRooms = query(world, [Room])
+        .filter(room => {
+            // Check if currentRoom has a ConnectsTo relation targeting this room
+            const hasRelation = query(world, [ConnectsTo(room)]).includes(currentRoom)
+            if (!hasRelation) return false
+            
+            // Use getComponent to get the direction (will use observer if available)
+            const connectionData = getComponent(world, currentRoom, ConnectsTo(room))
+            return connectionData?.direction === direction
+        })
     
-    if (!connection) {
+    if (connectedRooms.length === 0) {
         return {success: false, message: `There is no exit to the ${direction}.`}
     }
     
-    // Find the destination room
-    const targetRoomId = Connection.to[connection]
-    const targetRoom = rooms.find(room => Room.id[room] === targetRoomId)
+    const targetRoom = connectedRooms[0]
     
     if (!targetRoom) {
         return {success: false, message: "The destination room does not exist!"}
