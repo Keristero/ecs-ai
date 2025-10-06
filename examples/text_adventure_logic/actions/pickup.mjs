@@ -1,5 +1,5 @@
 import {query, removeComponent, addComponent} from 'bitecs'
-import {InRoom} from '../systems/text_adventure_systems.mjs'
+import {InRoom, InInventory} from '../systems/text_adventure_systems.mjs'
 
 /**
  * Pickup action - player picks up an item
@@ -13,9 +13,9 @@ export default function pickup(game, params) {
     const playerId = params.playerId ?? game.playerId
     const {itemId} = params
     const {world} = game
-    const {Item, Pickup, Inventory} = world.components
+    const {Item} = world.components
     
-    const items = query(world, [Item, Pickup])
+    const items = query(world, [Item])
     const item = items.find(i => Item.id[i] === itemId)
     
     if (!item) {
@@ -40,10 +40,7 @@ export default function pickup(game, params) {
     
     // Remove item from room and add to player inventory
     removeComponent(world, item, InRoom(playerRoom))
-    
-    // Add inventory relation
-    Inventory.holder[item] = playerId
-    Inventory.item[item] = itemId
+    addComponent(world, item, InInventory(playerId))
     
     return {success: true, message: `You pick up the item.`}
 }

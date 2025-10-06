@@ -1,5 +1,5 @@
-import {query, addComponent} from 'bitecs'
-import {InRoom} from '../systems/text_adventure_systems.mjs'
+import {query, addComponent, removeComponent} from 'bitecs'
+import {InRoom, InInventory} from '../systems/text_adventure_systems.mjs'
 
 /**
  * Drop action - player drops an item
@@ -13,7 +13,7 @@ export default function drop(game, params) {
     const playerId = params.playerId ?? game.playerId
     const {itemId} = params
     const {world} = game
-    const {Item, Inventory} = world.components
+    const {Item} = world.components
     
     const items = query(world, [Item])
     const item = items.find(i => Item.id[i] === itemId)
@@ -22,8 +22,9 @@ export default function drop(game, params) {
         return {success: false, message: "Item not found!"}
     }
     
-    // Check if player has the item
-    if (Inventory.holder[item] !== playerId) {
+    // Check if player has the item (is it in their inventory?)
+    const itemsInInventory = query(world, [Item, InInventory(playerId)])
+    if (!itemsInInventory.includes(item)) {
         return {success: false, message: "You don't have that item!"}
     }
     
@@ -39,8 +40,7 @@ export default function drop(game, params) {
     }
     
     // Remove from inventory and add to room
-    Inventory.holder[item] = 0
-    Inventory.item[item] = 0
+    removeComponent(world, item, InInventory(playerId))
     addComponent(world, item, InRoom(playerRoom))
     
     return {success: true, message: `You drop the item.`}

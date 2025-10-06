@@ -65,7 +65,7 @@ function setupStringStoreObservers(world) {
 // Setup initial game world
 function setup_world(game) {
     const {world, prefabs} = game
-    const {Room, Item, Landmark, Enemy, Player, Connection, Hitpoints, Attributes, Name, Description, Pickup} = world.components
+    const {Room, Item, Landmark, Enemy, Player, Connection, Hitpoints, Attributes, Name, Description} = world.components
     
     // Setup string store observers before creating entities
     setupStringStoreObservers(world)

@@ -1,5 +1,5 @@
 import {query, hasComponent, getComponent} from 'bitecs'
-import {InRoom} from '../systems/text_adventure_systems.mjs'
+import {InRoom, InInventory} from '../systems/text_adventure_systems.mjs'
 
 /**
  * Look action - get information about the current room
@@ -43,10 +43,8 @@ export default function look(game, params) {
         .filter(conn => Connection.from[conn] === roomId)
         .map(conn => world.string_store.getString(Connection.direction[conn]))
     
-    // Get items in player inventory
-    const inventory = query(world, [Item]).filter(item => {
-        return world.components.Inventory.holder[item] === playerId
-    })
+    // Get items in player inventory using InInventory relation
+    const inventory = query(world, [Item, InInventory(playerId)])
     
     return {
         success: true,

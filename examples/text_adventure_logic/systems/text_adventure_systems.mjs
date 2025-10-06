@@ -3,6 +3,9 @@ import {query, createRelation} from 'bitecs'
 // Relation: entity is located in a room
 const InRoom = createRelation()
 
+// Relation: entity is in another entity's inventory
+const InInventory = createRelation()
+
 // Enemy AI turn system - runs after player actions
 const enemy_turn_system = (game) => {
     const {world} = game
@@ -34,5 +37,6 @@ const enemy_turn_system = (game) => {
 
 export {
     enemy_turn_system,
-    InRoom
+    InRoom,
+    InInventory
 }

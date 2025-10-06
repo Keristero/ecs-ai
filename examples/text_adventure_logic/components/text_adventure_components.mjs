@@ -22,7 +22,6 @@ const Attributes = {
 
 // Game-specific components
 const Enemy = {}
-const Pickup = {}
 
 const Room = {
     id: [], // unique room id
@@ -48,23 +47,15 @@ const Connection = {
     direction: [], // e.g. 'north', 'south', etc.
 }
 
-// Inventory: which entity holds which item
-const Inventory = {
-    holder: [], // entity id
-    item: [],   // item id
-}
-
 export {
     Hitpoints,
     Name,
     Description,
     Attributes,
     Enemy,
-    Pickup,
     Room,
     Item,
     Landmark,
     Player,
-    Connection,
-    Inventory
+    Connection
 }
