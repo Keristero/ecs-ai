@@ -25,10 +25,8 @@ export default function look(game, params) {
     }
     
     const roomId = Room.id[currentRoom]
-    const roomNameData = getComponent(world, currentRoom, Name)
-    const roomDescData = getComponent(world, currentRoom, Description)
-    const roomName = roomNameData?.value || ''
-    const roomDescription = roomDescData?.value || ''
+    const roomName = getComponent(world, currentRoom, Name)?.value || ''
+    const roomDescription = getComponent(world, currentRoom, Description)?.value || ''
     
     // Get all entities in the room
     const entities_in_room = query(world, [InRoom(currentRoom)])
@@ -41,7 +39,7 @@ export default function look(game, params) {
     const connections = query(world, [Connection])
     const exits = connections
         .filter(conn => Connection.from[conn] === roomId)
-        .map(conn => world.string_store.getString(Connection.direction[conn]))
+        .map(conn => getComponent(world, conn, Connection)?.direction || '')
     
     // Get items in player inventory using InInventory relation
     const inventory = query(world, [Item, InInventory(playerId)])
@@ -53,39 +51,31 @@ export default function look(game, params) {
         roomDescription,
         exits,
         items: items.map(e => {
-            const nameData = getComponent(world, e, Name)
-            const descData = getComponent(world, e, Description)
             return {
-                id: Item.id[e],
-                name: nameData?.value || '',
-                description: descData?.value || ''
+                id: getComponent(world, e, Item)?.id,
+                name: getComponent(world, e, Name)?.value || '',
+                description: getComponent(world, e, Description)?.value || ''
             }
         }),
         landmarks: landmarks.map(e => {
-            const nameData = getComponent(world, e, Name)
-            const descData = getComponent(world, e, Description)
             return {
-                id: Landmark.id[e],
-                name: nameData?.value || '',
-                description: descData?.value || ''
+                id: getComponent(world, e, Landmark)?.id,
+                name: getComponent(world, e, Name)?.value || '',
+                description: getComponent(world, e, Description)?.value || ''
             }
         }),
         enemies: enemies.map(e => {
-            const nameData = getComponent(world, e, Name)
-            const descData = getComponent(world, e, Description)
             return {
-                id: Enemy.id[e],
-                name: nameData?.value || '',
-                description: descData?.value || ''
+                id: e, // enemies don't have an id field in the component, use entity id
+                name: getComponent(world, e, Name)?.value || '',
+                description: getComponent(world, e, Description)?.value || ''
             }
         }),
         inventory: inventory.map(e => {
-            const nameData = getComponent(world, e, Name)
-            const descData = getComponent(world, e, Description)
             return {
-                id: Item.id[e],
-                name: nameData?.value || '',
-                description: descData?.value || ''
+                id: getComponent(world, e, Item)?.id,
+                name: getComponent(world, e, Name)?.value || '',
+                description: getComponent(world, e, Description)?.value || ''
             }
         })
     }

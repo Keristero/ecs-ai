@@ -3,7 +3,7 @@ import {InRoom} from './systems/text_adventure_systems.mjs'
 
 // Setup string store observers for Name and Description components
 function setupStringStoreObservers(world) {
-    const {Name, Description, Connection, Hitpoints} = world.components
+    const {Name, Description, Connection, Hitpoints, Item, Enemy, Landmark} = world.components
     
     // Use the string store from world (created during game init)
     const {getString, addString} = world.string_store
@@ -60,6 +60,38 @@ function setupStringStoreObservers(world) {
             Connection.to[eid] = params.to
         }
     })
+    
+    // Observer for Connection component - enables retrieval
+    observe(world, onGet(Connection), (eid) => ({
+        direction: getString(Connection.direction[eid]),
+        from: Connection.from[eid],
+        to: Connection.to[eid]
+    }))
+    
+    // Observer for Item component - enables prefab inheritance
+    observe(world, onSet(Item), (eid, params) => {
+        if (params && params.id !== undefined) {
+            Item.id[eid] = params.id
+        }
+    })
+    
+    observe(world, onGet(Item), (eid) => ({
+        id: Item.id[eid]
+    }))
+    
+    // Observer for Enemy component - enables prefab inheritance (enemy doesn't have id field, but we'll add for consistency)
+    // Enemy is just a tag component, but we can add an id if needed
+    
+    // Observer for Landmark component - enables prefab inheritance  
+    observe(world, onSet(Landmark), (eid, params) => {
+        if (params && params.id !== undefined) {
+            Landmark.id[eid] = params.id
+        }
+    })
+    
+    observe(world, onGet(Landmark), (eid) => ({
+        id: Landmark.id[eid]
+    }))
 }
 
 // Setup initial game world
