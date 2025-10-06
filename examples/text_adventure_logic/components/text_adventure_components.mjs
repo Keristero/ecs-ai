@@ -1,115 +1,40 @@
 import {z} from 'zod'
+import {CreateComponent} from '../../../game_framework/create_component.mjs'
 
-/**
- * Component metadata for automatic observer setup
- * Each component can specify:
- * - stringFields: array of field names that should use string store
- * - numberFields: array of field names that are numeric
- * - schema: optional Zod schema for validation
- * 
- * This metadata is used by setupComponentObservers() during world initialization.
- * After setup, use bitECS's getComponent() to retrieve component data - it will
- * automatically trigger onGet observers.
- */
-const COMPONENT_METADATA = {
-    Name: {
-        stringFields: ['value'],
-        schema: z.object({
-            value: z.string()
-        })
-    },
-    Description: {
-        stringFields: ['value'],
-        schema: z.object({
-            value: z.string()
-        })
-    },
-    Hitpoints: {
-        numberFields: ['max', 'current'],
-        schema: z.object({
-            max: z.number().int().positive(),
-            current: z.number().int().nonnegative()
-        })
-    },
-    Item: {
-        schema: z.object({})
-    },
-    Landmark: {
-        schema: z.object({})
-    },
-    Player: {
-        numberFields: ['respawnRoom'],
-        schema: z.object({
-            respawnRoom: z.number().int().nonnegative()
-        })
-    },
-    Usable: {
-        stringFields: ['targetComponent', 'modifyComponent', 'modifyField'],
-        numberFields: ['modifyAmount'],
-        schema: z.object({
-            targetComponent: z.string(),
-            modifyComponent: z.string(),
-            modifyField: z.string(),
-            modifyAmount: z.number()
-        })
-    },
-    Attributes: {
-        numberFields: ['strength', 'dexterity', 'intelligence'],
-        schema: z.object({
-            strength: z.number().int().nonnegative(),
-            dexterity: z.number().int().nonnegative(),
-            intelligence: z.number().int().nonnegative()
-        })
-    },
-    // Relations metadata
-    ConnectsTo: {
-        stringFields: ['direction'],
-        schema: z.object({
-            direction: z.string()
-        })
-    }
-}
+let Hitpoints = CreateComponent(z.object({
+    max: z.number().int().positive(),
+    current: z.number().int().nonnegative()
+}))
 
-// Basic components
-const Hitpoints = {
-    max: [],
-    current: []
-}
+let Name = CreateComponent(z.object({
+    value: z.string()
+}))
 
-const Name = {
-    stringIndex: [],
-}
+let Description = CreateComponent(z.object({
+    value: z.string()
+}))
 
-const Description = {
-    stringIndex: [],
-}
+let Attributes = CreateComponent(z.object({
+    strength: z.number().int().nonnegative(),
+    dexterity: z.number().int().nonnegative(),
+    intelligence: z.number().int().nonnegative()
+}))
 
-const Attributes = {
-    strength: [],
-    dexterity: [],
-    intelligence: [],
-}
+let Enemy = CreateComponent()
+let Room = CreateComponent()
+let Item = CreateComponent()
+let Landmark = CreateComponent()
 
-// Game-specific components
-const Enemy = {}
+let Player = CreateComponent(z.object({
+    respawnRoom: z.number().int().nonnegative() // entity id of room to respawn in
+}))
 
-const Room = {}
-
-const Item = {}
-
-const Landmark = {}
-
-const Player = {
-    respawnRoom: [], // entity id of room to respawn in
-}
-
-// Usable items - defines what an item can target and how it modifies them
-const Usable = {
-    targetComponent: [], // string index - which component the target must have (e.g. "Hitpoints")
-    modifyComponent: [], // string index - which component to modify (e.g. "Hitpoints")
-    modifyField: [], // string index - which field to modify (e.g. "current")
-    modifyAmount: [], // numeric amount to modify by (positive or negative)
-}
+let Usable = CreateComponent(z.object({
+    targetComponent: z.string(), // which component the target must have (e.g. "Hitpoints")
+    modifyComponent: z.string(), // which component to modify (e.g. "Hitpoints")
+    modifyField: z.string(), // which field to modify (e.g. "current")
+    modifyAmount: z.number() // amount to modify by (positive or negative)
+}))
 
 export {
     Hitpoints,
@@ -121,6 +46,5 @@ export {
     Item,
     Landmark,
     Player,
-    Usable,
-    COMPONENT_METADATA
+    Usable
 }

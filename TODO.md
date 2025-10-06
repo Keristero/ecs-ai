@@ -1,2 +1,1 @@
-- game should auto simulate after the player takes an action
-- find a way to get the autocomplete to work for use {item 1} {item 2}
+- create a component factory that lets us define the schema

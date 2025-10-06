@@ -4,8 +4,8 @@ import {addPrefab, addComponent, set} from 'bitecs'
  * Rusty Sword item prefab
  * A basic weapon found in starting areas
  */
-export default function create_rusty_sword_prefab(world, components) {
-    const {Item, Name, Description, Usable} = components
+export default function create_rusty_sword_prefab(world) {
+    const {Item, Name, Description, Usable} = world.components
     
     const RustySword = addPrefab(world)
     addComponent(world, RustySword, Item)

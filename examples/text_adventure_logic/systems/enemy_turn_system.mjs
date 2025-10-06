@@ -1,9 +1,9 @@
 import {query} from 'bitecs'
-import {InRoom, InInventory} from '../relations/text_adventure_relations.mjs'
 
 // Enemy AI turn system - runs after player actions
 const enemy_turn_system = (game) => {
     const {world} = game
+    const {InRoom} = world.relations
     const enemies = query(world, [world.components.Enemy, world.components.Hitpoints])
     
     for (const entity of enemies) {
@@ -31,7 +31,5 @@ const enemy_turn_system = (game) => {
 }
 
 export {
-    enemy_turn_system,
-    InRoom,
-    InInventory
+    enemy_turn_system
 }

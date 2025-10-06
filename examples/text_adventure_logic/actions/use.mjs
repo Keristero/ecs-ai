@@ -1,5 +1,4 @@
-import {query, hasComponent, getComponent, setComponent} from 'bitecs'
-import {InRoom, InInventory} from '../relations/text_adventure_relations.mjs'
+import {query, hasComponent, getComponent, setComponent, removeComponent} from 'bitecs'
 import {z} from 'zod'
 
 /**
@@ -16,6 +15,7 @@ export default function use(game, params) {
     const playerId = params.playerId ?? game.playerId
     let {itemId, targetId} = params
     const {world} = game
+    const {InRoom, InInventory} = world.relations
     const {Item, Usable, Name} = world.components
     
     // itemId is the entity ID - find it in player's inventory

@@ -1,13 +1,10 @@
 import {addEntity, addComponent, set, IsA} from 'bitecs'
-import {InRoom, ConnectsTo} from './relations/text_adventure_relations.mjs'
 
 // Setup initial game world
 function setup_world(game) {
     const {world, prefabs} = game
     const {Room, Item, Landmark, Enemy, Player, Hitpoints, Attributes, Name, Description} = world.components
-    
-    // Store InRoom on world.systems for prefabs to access
-    world.systems = {InRoom}
+    const {InRoom, ConnectsTo} = world.relations
     
     // Create rooms
     const room1 = addEntity(world)
@@ -26,7 +23,7 @@ function setup_world(game) {
     addComponent(world, room3, set(Description, {value: "Crumbling stone structures covered in moss."}))
     
     // Create connections between rooms using ConnectsTo relation
-    // The direction is stored in the relation data
+    // The direction is stored in the relation data as a string
     addComponent(world, room1, ConnectsTo(room2))
     ConnectsTo(room2).direction[room1] = world.string_store.addString("north")
     

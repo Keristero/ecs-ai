@@ -3,7 +3,6 @@ import path from "path";
 import fs from "fs/promises";
 import { createWorld } from 'bitecs'
 import Logger from "../logger.mjs";
-import { setupComponentObservers } from "./component_observers.mjs";
 const logger = new Logger("Game Framework","red");
 
 async function _import_all_exports_from_directory(directory){
@@ -49,21 +48,13 @@ async function initialize_game(){
     }
 
     const baseGameLogicPath = process.env.GAME_LOGIC_FOLDER_PATH || env.game_logic_folder_path
+
     let components_folder = path.resolve(baseGameLogicPath, 'components')
     const components = await _import_all_exports_from_directory(components_folder)
 
-    // Import relations if they exist
     let relations_folder = path.resolve(baseGameLogicPath, 'relations')
-    try {
-        const relations = await _import_all_exports_from_directory(relations_folder)
-        // Add relations to components so they can be used with observers
-        Object.assign(components, relations)
-        logger.info(`Imported ${Object.keys(relations).length} relations`)
-    } catch (error) {
-        logger.warn(`No relations folder found:`, error.message)
-    }
+    const relations = await _import_all_exports_from_directory(relations_folder)
 
-    // Import systems (for systems like enemy_turn_system)
     let systems_folder = path.resolve(baseGameLogicPath, 'systems')
     const systems = await _import_all_exports_from_directory(systems_folder)
 
@@ -76,7 +67,8 @@ async function initialize_game(){
     }
 
     game.world = createWorld({
-        components: components
+        components: {},
+        relations: {}
     })
     
     // Setup string store for components that need string storage
@@ -94,30 +86,33 @@ async function initialize_game(){
         addString,
         store: stringStore
     }
-    
-    // If the game exports COMPONENT_METADATA, setup observers automatically
-    // This must happen BEFORE prefabs are loaded so that set() calls trigger onSet observers
-    // COMPONENT_METADATA can include both components and relations
-    if (components.COMPONENT_METADATA) {
-        logger.info(`Setting up component observers from COMPONENT_METADATA`)
-        setupComponentObservers(game.world, components.COMPONENT_METADATA)
+
+    for(const name in components){
+        let component_metadata = components[name]
+        game.world.components[name] = component_metadata.data
+        component_metadata.enableObservers(game.world)
     }
 
-    // Load prefabs if they exist and initialize them
-    const prefabs_folder = path.resolve(baseGameLogicPath, 'prefabs')
-    try {
-        const prefab_creators = await import_default_exports_from_directory(prefabs_folder)
-        game.prefabs = {}
-        
-        // Initialize each prefab by calling its creator function
-        for (const [name, creator] of Object.entries(prefab_creators)) {
-            game.prefabs[name] = creator(game.world, components)
+    for(const name in relations){
+        let relation_metadata = relations[name]
+        logger.info(`Loading relation: ${name}, type: ${typeof relation_metadata.data}`)
+        game.world.relations[name] = relation_metadata.data
+        logger.info(`Relation ${name} loaded. Is function: ${typeof game.world.relations[name] === 'function'}`)
+    }
+
+    let prefabs_folder = path.resolve(baseGameLogicPath, 'prefabs')
+    const prefabs = await import_default_exports_from_directory(prefabs_folder)
+
+    for(let name in prefabs){
+        logger.info(`Found prefab: ${name}`)
+        let prefab_creator = prefabs[name]
+        if(typeof prefab_creator === 'function'){
+            game.prefabs = game.prefabs || {}
+            game.prefabs[name] = prefab_creator(game.world)
+            logger.info(`Initialized prefab: ${name}`)
+        }else{
+            logger.warn(`Prefab ${name} is not a function, skipping initialization`)
         }
-        
-        logger.info(`Loaded and initialized ${Object.keys(game.prefabs).length} prefabs`)
-    } catch (error) {
-        logger.warn(`No prefabs folder found or error loading prefabs:`, error.message)
-        game.prefabs = {}
     }
 
     logger.info(`Game initialized`,game)

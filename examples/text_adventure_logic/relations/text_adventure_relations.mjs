@@ -1,16 +1,15 @@
-import {createRelation} from 'bitecs'
+import {z} from 'zod'
+import { CreateRelation } from '../../../game_framework/create_component.mjs'
 
-// Relation: entity is located in a room
-const InRoom = createRelation()
+// InRoom and InInventory are simpler - they don't need custom data fields
+// The relation target itself carries the meaning (which room/inventory)
+let InRoom = CreateRelation({})
+let InInventory = CreateRelation({})
 
-// Relation: entity is in another entity's inventory
-const InInventory = createRelation()
-
-// Relation: room connects to another room
-// The direction is stored in the relation data (e.g., 'north', 'south', 'up', 'down', etc.)
-const ConnectsTo = createRelation({
-    store: () => ({ direction: [] })
-})
+// ConnectsTo has additional data - the direction of the connection
+let ConnectsTo = CreateRelation({},z.object({
+    direction: z.string()
+}))
 
 export {
     InRoom,

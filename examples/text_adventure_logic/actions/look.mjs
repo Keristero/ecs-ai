@@ -1,5 +1,4 @@
 import {query, hasComponent, getComponent} from 'bitecs'
-import {InRoom, InInventory, ConnectsTo} from '../relations/text_adventure_relations.mjs'
 import {z} from 'zod'
 
 /**
@@ -12,6 +11,7 @@ import {z} from 'zod'
 export default function look(game, params) {
     const playerId = params.playerId ?? game.playerId
     const {world} = game
+    const {InRoom, InInventory, ConnectsTo} = world.relations
     const {Room, Item, Landmark, Enemy, Name, Description} = world.components
     
     // Find current room
