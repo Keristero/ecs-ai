@@ -14,6 +14,10 @@ function CreateRelation(options,schema=z.object({})){
         for(const key in schema.shape){
             storeTemplate[key] = []
         }
+        
+        // Store reference for observer setup
+        let createdStores = new Map() // Track stores for each target
+        
         // The store function must return a NEW store object each time it's called
         data = createRelation({
             store: () => {
@@ -25,14 +29,83 @@ function CreateRelation(options,schema=z.object({})){
             },
             ...options
         })
+        
+        // Wrap the relation to track store creation
+        const originalRelation = data
+        data = new Proxy(originalRelation, {
+            apply(target, thisArg, args) {
+                const targetEid = args[0] // The target entity ID
+                const store = Reflect.apply(target, thisArg, args)
+                
+                // Store the mapping for enableObservers
+                if(targetEid !== undefined && !createdStores.has(targetEid)) {
+                    createdStores.set(targetEid, store)
+                }
+                
+                return store
+            }
+        })
+        
+        // Expose the stores map for observer setup
+        data._stores = createdStores
     }else{
         data = createRelation({...options})
     }
-    return {
+    
+    const relation_metadata = {
         relation: data,
         data: data,
-        storeTemplate: storeTemplate
+        storeTemplate: storeTemplate,
+        schema: schema,
+        enableObservers: function(world) {
+            // Only set up observers if there are fields in the schema
+            if (!hasFields) return
+            
+            const {getString, addString} = world.string_store
+            
+            // Set up observer that will apply to all stores created by this relation
+            // We need to observe each individual store as it's created
+            const originalRelation = data._unwrapped || data
+            
+            // Wrap the relation function to add observers to newly created stores
+            const wrappedRelation = function(targetEid) {
+                const store = originalRelation(targetEid)
+                
+                // Check if we've already set up observers for this store
+                if (!store._hasObservers) {
+                    observe(world, onSet(store), (eid, params) => {
+                        if (!params) return
+                        schema.parse(params)
+                        
+                        for(const param in params){
+                            const fieldType = schema.shape[param]
+                            if(fieldType._def?.typeName === 'ZodString'){
+                                store[param][eid] = addString(params[param])
+                            }
+                            else if(fieldType._def?.typeName === 'ZodNumber'){
+                                store[param][eid] = params[param]
+                            }
+                        }
+                    })
+                    store._hasObservers = true
+                }
+                
+                return store
+            }
+            
+            // Copy properties from original relation
+            Object.setPrototypeOf(wrappedRelation, Object.getPrototypeOf(originalRelation))
+            for(const key in originalRelation) {
+                wrappedRelation[key] = originalRelation[key]
+            }
+            wrappedRelation._unwrapped = originalRelation
+            
+            // Update the relation in world and metadata
+            relation_metadata.data = wrappedRelation
+        }
     }
+    
+    return relation_metadata
 }
 
 function CreateComponent(schema=z.object({})){

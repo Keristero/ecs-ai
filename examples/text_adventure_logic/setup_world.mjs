@@ -3,7 +3,7 @@ import {addEntity, addComponent, set, IsA} from 'bitecs'
 // Setup initial game world
 function setup_world(game) {
     const {world, prefabs} = game
-    const {Room, Item, Landmark, Enemy, Player, Hitpoints, Attributes, Name, Description} = world.components
+    const {Room, Landmark, Player, Hitpoints, Attributes, Name, Description} = world.components
     const {InRoom, ConnectsTo} = world.relations
     
     // Create rooms
@@ -23,18 +23,11 @@ function setup_world(game) {
     addComponent(world, room3, set(Description, {value: "Crumbling stone structures covered in moss."}))
     
     // Create connections between rooms using ConnectsTo relation
-    // The direction is stored in the relation data as a string
-    addComponent(world, room1, ConnectsTo(room2))
-    ConnectsTo(room2).direction[room1] = world.string_store.addString("north")
-    
-    addComponent(world, room2, ConnectsTo(room1))
-    ConnectsTo(room1).direction[room2] = world.string_store.addString("south")
-    
-    addComponent(world, room2, ConnectsTo(room3))
-    ConnectsTo(room3).direction[room2] = world.string_store.addString("east")
-    
-    addComponent(world, room3, ConnectsTo(room2))
-    ConnectsTo(room2).direction[room3] = world.string_store.addString("west")
+    // Now we can use the clean set() syntax!
+    addComponent(world, room1, set(ConnectsTo(room2), {direction: "north"}))
+    addComponent(world, room2, set(ConnectsTo(room1), {direction: "south"}))
+    addComponent(world, room2, set(ConnectsTo(room3), {direction: "east"}))
+    addComponent(world, room3, set(ConnectsTo(room2), {direction: "west"}))
     
     // Create landmarks
     const landmark1 = addEntity(world)

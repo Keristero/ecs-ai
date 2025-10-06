@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node main.mjs",
     "test": "mocha tests/**/*.test.mjs",
-    "test:client": "mocha examples/text_adventure_client/tests/**/*.test.mjs"
+    "test:client": "mocha examples/text_adventure_client/tests/**/*.test.mjs",
+    "test:relations": "node tests/framework/relations.test.mjs"
   },
   "author": "",
   "license": "ISC",

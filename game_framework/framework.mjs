@@ -97,6 +97,11 @@ async function initialize_game(){
         let relation_metadata = relations[name]
         logger.info(`Loading relation: ${name}, type: ${typeof relation_metadata.data}`)
         game.world.relations[name] = relation_metadata.data
+        if(relation_metadata.enableObservers) {
+            relation_metadata.enableObservers(game.world)
+            // Update the reference after observers are enabled (may be wrapped)
+            game.world.relations[name] = relation_metadata.data
+        }
         logger.info(`Relation ${name} loaded. Is function: ${typeof game.world.relations[name] === 'function'}`)
     }
 
