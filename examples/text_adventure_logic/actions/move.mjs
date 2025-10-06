@@ -36,9 +36,12 @@ export default function move(game, params) {
             const hasRelation = query(world, [ConnectsTo(room)]).includes(currentRoom)
             if (!hasRelation) return false
             
-            // Use getComponent to get the direction (will use observer if available)
-            const connectionData = getComponent(world, currentRoom, ConnectsTo(room))
-            return connectionData?.direction === direction
+            // Get the direction from the relation data (stored as string index)
+            const directionIndex = ConnectsTo(room).direction[currentRoom]
+            if (directionIndex === undefined) return false
+            
+            const roomDirection = world.string_store.getString(directionIndex)
+            return roomDirection === direction
         })
     
     if (connectedRooms.length === 0) {

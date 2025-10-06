@@ -31,6 +31,7 @@ class GameState {
         this.availableActions = [];
         this.commandHistory = [];
         this.historyIndex = -1;
+        this.entityNameToIdMap = {}; // Maps entity names to their IDs
     }
 
     addToHistory(command) {
@@ -54,6 +55,45 @@ class GameState {
             this.historyIndex = this.commandHistory.length;
             return '';
         }
+    }
+    
+    // Update entity name to ID mapping from room data
+    updateEntityMap(roomData) {
+        this.entityNameToIdMap = {};
+        
+        if (!roomData) return;
+        
+        // Process all entity types
+        const entityTypes = ['items', 'enemies', 'landmarks', 'inventory'];
+        
+        for (const typeName of entityTypes) {
+            const entities = roomData[typeName] || [];
+            entities.forEach(entity => {
+                if (entity.name && entity.id !== undefined) {
+                    // Store in lowercase for case-insensitive matching
+                    const normalizedName = entity.name.toLowerCase();
+                    this.entityNameToIdMap[normalizedName] = entity.id;
+                }
+            });
+        }
+    }
+    
+    // Convert entity name to ID (returns the input if it's already an ID or not found)
+    getEntityId(nameOrId) {
+        // If it's already a number, return it
+        const asNumber = Number(nameOrId);
+        if (!isNaN(asNumber) && nameOrId !== '') {
+            return asNumber;
+        }
+        
+        // Try to find by name (case-insensitive)
+        const normalizedName = nameOrId.toLowerCase();
+        if (this.entityNameToIdMap[normalizedName] !== undefined) {
+            return this.entityNameToIdMap[normalizedName];
+        }
+        
+        // Return original if not found
+        return nameOrId;
     }
 }
 
@@ -87,8 +127,7 @@ async function loadActionsMetadata() {
                 usage,
                 parameters,
                 autocompletes: metadata.autocompletes || [],
-                summarizeWithAI: metadata.summarizeWithAI || false,
-                parse: (args) => parseActionArgs(name, parameters, args)
+                summarizeWithAI: metadata.summarizeWithAI || false
             };
             
             // Add action under its primary name
@@ -107,10 +146,68 @@ async function loadActionsMetadata() {
     }
 }
 
-// Parse action arguments based on parameter list
-function parseActionArgs(actionName, parameters, args) {
+// Parse action arguments based on parameter list and current room state
+// This needs access to the entity map to intelligently match multi-word entity names
+function parseActionArgs(actionName, parameters, args, entityMap = {}) {
     const params = {};
     
+    // If there's only one parameter expected and multiple args, join them
+    // This handles multi-word entity names like "rusty sword"
+    if (parameters.length === 1 && args.length > 1) {
+        const joined = args.join(' ');
+        params[parameters[0]] = joined;
+        return { action: actionName, params };
+    }
+    
+    // For multiple parameters with multiple args, try to match known entity names
+    if (parameters.length > 1 && args.length >= parameters.length) {
+        const allWords = args.join(' ').toLowerCase();
+        const knownEntityNames = Object.keys(entityMap);
+        
+        // Try to find entity names in the input
+        let remainingText = allWords;
+        const matchedEntities = [];
+        
+        // Sort entity names by length (longest first) to match "rusty sword" before "rusty"
+        const sortedNames = knownEntityNames.sort((a, b) => b.length - a.length);
+        
+        for (const entityName of sortedNames) {
+            const index = remainingText.indexOf(entityName);
+            if (index !== -1) {
+                matchedEntities.push({
+                    name: entityName,
+                    position: index
+                });
+                // Remove matched entity from remaining text
+                remainingText = remainingText.substring(0, index) + 
+                               ' '.repeat(entityName.length) + 
+                               remainingText.substring(index + entityName.length);
+            }
+        }
+        
+        // Sort matches by position in the original text
+        matchedEntities.sort((a, b) => a.position - b.position);
+        
+        // Assign matched entities to parameters
+        if (matchedEntities.length > 0) {
+            for (let i = 0; i < parameters.length && i < matchedEntities.length; i++) {
+                params[parameters[i]] = matchedEntities[i].name;
+            }
+            return { action: actionName, params };
+        }
+        
+        // Fallback: if no entities matched, try a simple split heuristic
+        // Assume last word is the last parameter, everything else is the first
+        if (parameters.length === 2) {
+            const lastWord = args[args.length - 1];
+            const firstWords = args.slice(0, -1).join(' ');
+            params[parameters[0]] = firstWords;
+            params[parameters[1]] = lastWord;
+            return { action: actionName, params };
+        }
+    }
+    
+    // Otherwise, map args to parameters one-to-one
     for (let i = 0; i < parameters.length; i++) {
         const paramName = parameters[i];
         const argValue = args[i];
@@ -120,13 +217,8 @@ function parseActionArgs(actionName, parameters, args) {
             continue;
         }
         
-        // Try to parse as number if it looks like a number
-        const numValue = Number(argValue);
-        if (!isNaN(numValue) && argValue !== '') {
-            params[paramName] = numValue;
-        } else {
-            params[paramName] = argValue;
-        }
+        // Store as-is for now - will be converted during executeAction
+        params[paramName] = argValue;
     }
     
     return { action: actionName, params };
@@ -188,8 +280,8 @@ function getEntitiesByComponent(roomData, componentType) {
 // Format a single entity for display
 function formatEntity(entity, indent = '  ') {
     const lines = [];
-    const name = entity.name || `${entity.type || 'Entity'} [${entity.id}]`;
-    lines.push(`${indent}• ${name}${entity.id !== undefined ? ` [${entity.id}]` : ''}`);
+    const name = entity.name || `Entity ${entity.id}`;
+    lines.push(`${indent}• ${name}`);
     
     if (entity.description) {
         lines.push(`${indent}  ${entity.description}`);
@@ -287,10 +379,17 @@ async function initializeGame(state) {
 // Execute an action via API
 async function executeAction(state, actionName, params) {
     try {
+        // Convert entity names to IDs in params
+        const convertedParams = {};
+        for (const [key, value] of Object.entries(params)) {
+            // Try to convert to entity ID if it's a string
+            convertedParams[key] = state.getEntityId(value);
+        }
+        
         const data = await fetchJSON(`${API_BASE_URL}/actions/${actionName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerId: state.playerId, ...params })
+            body: JSON.stringify({ playerId: state.playerId, ...convertedParams })
         });
         
         if (data.result) {
@@ -299,13 +398,14 @@ async function executeAction(state, actionName, params) {
             // Update room data if this was a look action or movement
             if (actionName === 'look' || (result.roomId && actionName === 'move')) {
                 state.currentRoomData = result;
+                state.updateEntityMap(result);
             }
             
             // Check if we should summarize with AI
             const actionDef = DYNAMIC_ACTIONS[actionName];
             if (actionDef && actionDef.summarizeWithAI && result.success) {
                 try {
-                    const aiSummary = await summarizeWithAI(actionName, params, result);
+                    const aiSummary = await summarizeWithAI(actionName, convertedParams, result);
                     if (aiSummary) {
                         // Replace the message with the AI summary
                         result.message = aiSummary;
@@ -361,7 +461,7 @@ Dont think or anything, just respond with the narrative:`;
 }
 
 // Parse command into action and parameters
-function parseCommand(input) {
+function parseCommand(input, state = null) {
     const trimmed = input.trim();
     if (!trimmed) return null;
     
@@ -388,7 +488,9 @@ function parseCommand(input) {
     
     // Handle action commands
     if (cmdDef.type === 'action') {
-        const parsed = cmdDef.parse(args);
+        // Pass entity map to help with parsing multi-word entity names
+        const entityMap = state?.entityNameToIdMap || {};
+        const parsed = parseActionArgs(cmdDef.name, cmdDef.parameters, args, entityMap);
         
         if (parsed.error) {
             return { type: 'error', message: parsed.error };
@@ -424,43 +526,8 @@ function getAutocompleteSuggestions(input, currentRoomData) {
     if (input.includes(' ') && parts.length > 1) {
         const cmdDef = allCommands[commandPart];
         
-        if (cmdDef && cmdDef.type === 'action' && cmdDef.autocompletes) {
-            const paramIndex = parts.length - 2; // Current parameter being completed
-            const paramPrefix = parts[parts.length - 1];
-            
-            if (paramIndex < cmdDef.autocompletes.length) {
-                const requiredComponents = cmdDef.autocompletes[paramIndex];
-                
-                // Get entities from room data that match required components
-                const suggestions = [];
-                
-                if (currentRoomData && requiredComponents.length > 0) {
-                    // For each required component, find matching entities
-                    for (const componentType of requiredComponents) {
-                        const entities = getEntitiesByComponent(currentRoomData, componentType);
-                        
-                        entities.forEach(entity => {
-                            const entityName = entity.name || ENTITY_TYPES[entity.type]?.singularLabel || 'entity';
-                            const suggestion = `${commandPart} ${entity.id}`;
-                            
-                            if (!paramPrefix || entity.id.toString().startsWith(paramPrefix)) {
-                                suggestions.push({
-                                    text: suggestion,
-                                    display: `${suggestion} (${entityName})`
-                                });
-                            }
-                        });
-                    }
-                }
-                
-                if (suggestions.length > 0) {
-                    return suggestions;
-                }
-            }
-        }
-        
         // Special handling for move command directions
-        if (commandPart === 'move' || commandPart === 'm') {
+        if (commandPart === 'move' || commandPart === 'go' || commandPart === 'walk' || commandPart === 'm') {
             const prefix = parts[parts.length - 1];
             const directions = ['north', 'south', 'east', 'west'];
             
@@ -475,6 +542,79 @@ function getAutocompleteSuggestions(input, currentRoomData) {
             return availableDirections
                 .filter(dir => !prefix || dir.startsWith(prefix))
                 .map(dir => ({ text: `${commandPart} ${dir}`, display: `${commandPart} ${dir}` }));
+        }
+        
+        if (cmdDef && cmdDef.type === 'action' && cmdDef.autocompletes) {
+            const paramIndex = parts.length - 2; // Current parameter being completed
+            const paramPrefix = parts[parts.length - 1];
+            
+            // Special handling for 'use' command second parameter
+            // Show all entities in room (enemies, items, landmarks) as potential targets
+            if ((commandPart === 'use' || commandPart === 'u' || commandPart === 'apply' || commandPart === 'attack') && paramIndex === 1) {
+                const suggestions = [];
+                
+                if (currentRoomData) {
+                    // Get all targetable entities (enemies, items in room, landmarks)
+                    const allEntities = [
+                        ...(currentRoomData.enemies || []),
+                        ...(currentRoomData.items || []),
+                        ...(currentRoomData.landmarks || [])
+                    ];
+                    
+                    // Build complete command with previous parameter
+                    const previousParams = parts.slice(1, -1).join(' ');
+                    
+                    allEntities.forEach(entity => {
+                        const entityName = entity.name || `Entity ${entity.id}`;
+                        const lowerName = entityName.toLowerCase();
+                        
+                        // Match by name, not ID
+                        if (!paramPrefix || lowerName.startsWith(paramPrefix)) {
+                            const suggestion = `${commandPart} ${previousParams} ${entityName}`;
+                            suggestions.push({
+                                text: suggestion,
+                                display: suggestion
+                            });
+                        }
+                    });
+                }
+                
+                if (suggestions.length > 0) {
+                    return suggestions;
+                }
+            }
+            
+            if (paramIndex < cmdDef.autocompletes.length) {
+                const requiredComponents = cmdDef.autocompletes[paramIndex];
+                
+                // Get entities from room data that match required components
+                const suggestions = [];
+                
+                if (currentRoomData && requiredComponents.length > 0) {
+                    // For each required component, find matching entities
+                    for (const componentType of requiredComponents) {
+                        const entities = getEntitiesByComponent(currentRoomData, componentType);
+                        
+                        entities.forEach(entity => {
+                            const entityName = entity.name || `Entity ${entity.id}`;
+                            const lowerName = entityName.toLowerCase();
+                            
+                            // Match by name, not ID
+                            if (!paramPrefix || lowerName.startsWith(paramPrefix)) {
+                                const suggestion = `${commandPart} ${entityName}`;
+                                suggestions.push({
+                                    text: suggestion,
+                                    display: suggestion
+                                });
+                            }
+                        });
+                    }
+                }
+                
+                if (suggestions.length > 0) {
+                    return suggestions;
+                }
+            }
         }
     }
     

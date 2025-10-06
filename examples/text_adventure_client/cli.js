@@ -90,7 +90,7 @@ async function executeCommand(input) {
     }
     
     // Parse command
-    const parsed = core.parseCommand(input);
+    const parsed = core.parseCommand(input, gameState);
     
     if (!parsed) {
         rl.prompt();

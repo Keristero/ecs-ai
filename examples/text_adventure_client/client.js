@@ -97,7 +97,7 @@ async function executeCommand(input) {
     gameState.addToHistory(trimmed);
     
     // Parse command using core
-    const parsed = core.parseCommand(input);
+    const parsed = core.parseCommand(input, gameState);
     
     if (!parsed) {
         return;

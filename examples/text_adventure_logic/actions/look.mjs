@@ -46,10 +46,11 @@ export default function look(game, params) {
         // Check if currentRoom has a ConnectsTo(targetRoom) relation
         const entitiesConnectingToTarget = query(world, [ConnectsTo(targetRoom)])
         if (entitiesConnectingToTarget.includes(currentRoom)) {
-            // Use getComponent to get the direction (will use observer if available)
-            const connectionData = getComponent(world, currentRoom, ConnectsTo(targetRoom))
-            if (connectionData?.direction) {
-                exits.push(connectionData.direction)
+            // Get the direction from the relation data (stored as string index)
+            const directionIndex = ConnectsTo(targetRoom).direction[currentRoom]
+            if (directionIndex !== undefined) {
+                const direction = world.string_store.getString(directionIndex)
+                exits.push(direction)
             }
         }
     }

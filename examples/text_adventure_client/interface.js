@@ -55,15 +55,20 @@ function updateAutocomplete(input) {
     
     if (suggestions.length > 0) {
         autocompleteDiv.innerHTML = suggestions
-            .map((suggestion, idx) => 
-                `<div class="autocomplete-item" data-index="${idx}">${suggestion}</div>`
-            )
+            .map((suggestion, idx) => {
+                // Handle both string and object suggestions
+                const displayText = typeof suggestion === 'string' ? suggestion : suggestion.display;
+                const valueText = typeof suggestion === 'string' ? suggestion : suggestion.text;
+                return `<div class="autocomplete-item ${idx === 0 ? 'selected' : ''}" data-value="${valueText}" data-index="${idx}">${displayText}</div>`;
+            })
             .join('');
+        autocompleteDiv.style.display = 'block';
+        autocompleteIndex = 0; // Select first item by default
     } else {
         autocompleteDiv.innerHTML = '';
+        autocompleteDiv.style.display = 'none';
+        autocompleteIndex = -1;
     }
-    
-    autocompleteIndex = -1;
 }
 
 // Select autocomplete item
@@ -87,10 +92,21 @@ function selectAutocomplete(direction) {
 
 // Apply autocomplete selection
 function applyAutocomplete() {
-    const selected = autocompleteDiv.querySelector('.autocomplete-item.selected');
+    const items = autocompleteDiv.querySelectorAll('.autocomplete-item');
+    if (items.length === 0) return;
+    
+    // Get selected item or first item if none selected
+    let selected = autocompleteDiv.querySelector('.autocomplete-item.selected');
+    if (!selected && items.length > 0) {
+        selected = items[0];
+    }
+    
     if (selected) {
-        commandInput.value = selected.textContent;
+        const value = selected.getAttribute('data-value') || selected.textContent;
+        commandInput.value = value;
         autocompleteDiv.innerHTML = '';
+        autocompleteDiv.style.display = 'none';
+        autocompleteIndex = -1;
     }
 }
 
@@ -106,7 +122,7 @@ async function executeCommand(input) {
     gameState.addToHistory(trimmed);
     
     // Parse command
-    const parsed = parseCommand(input);
+    const parsed = parseCommand(input, gameState);
     
     if (!parsed) return;
     
@@ -179,6 +195,7 @@ commandInput.addEventListener('keydown', async (e) => {
         const command = commandInput.value;
         commandInput.value = '';
         autocompleteDiv.innerHTML = '';
+        autocompleteDiv.style.display = 'none';
         await executeCommand(command);
     } else if (e.key === 'Tab') {
         e.preventDefault();
@@ -191,6 +208,7 @@ commandInput.addEventListener('keydown', async (e) => {
             const prev = gameState.getPreviousCommand();
             if (prev !== null) {
                 commandInput.value = prev;
+                updateAutocomplete(prev); // Update autocomplete for history command
             }
         }
     } else if (e.key === 'ArrowDown') {
@@ -200,15 +218,23 @@ commandInput.addEventListener('keydown', async (e) => {
         } else {
             const next = gameState.getNextCommand();
             commandInput.value = next;
+            updateAutocomplete(next); // Update autocomplete for history command
         }
+    } else if (e.key === 'Escape') {
+        // Clear autocomplete on Escape
+        autocompleteDiv.innerHTML = '';
+        autocompleteDiv.style.display = 'none';
+        autocompleteIndex = -1;
     }
 });
 
 // Click to select autocomplete
 autocompleteDiv.addEventListener('click', (e) => {
     if (e.target.classList.contains('autocomplete-item')) {
-        commandInput.value = e.target.textContent;
+        const value = e.target.getAttribute('data-value') || e.target.textContent;
+        commandInput.value = value;
         autocompleteDiv.innerHTML = '';
+        autocompleteDiv.style.display = 'none';
         commandInput.focus();
     }
 });

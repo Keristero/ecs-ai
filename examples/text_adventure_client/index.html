@@ -77,26 +77,25 @@
             position: absolute;
             bottom: 100%;
             left: 20px;
+            right: 20px;
             background: #1a1a1a;
             border: 1px solid #0f0;
             max-height: 200px;
             overflow-y: auto;
             display: none;
+            z-index: 1000;
         }
 
         .autocomplete-item {
             padding: 5px 10px;
             cursor: pointer;
+            color: #0f0;
         }
 
         .autocomplete-item:hover,
         .autocomplete-item.selected {
             background: #0f0;
             color: #000;
-        }
-
-        #autocomplete:empty {
-            display: none;
         }
     </style>
 </head>

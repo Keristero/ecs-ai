@@ -26,16 +26,18 @@ function setup_world(game) {
     addComponent(world, room3, set(Description, {value: "Crumbling stone structures covered in moss."}))
     
     // Create connections between rooms using ConnectsTo relation
-    // The direction is stored in the relation data as a string index
-    const northIdx = world.string_store.addString("north")
-    const southIdx = world.string_store.addString("south")
-    const eastIdx = world.string_store.addString("east")
-    const westIdx = world.string_store.addString("west")
+    // The direction is stored in the relation data
+    addComponent(world, room1, ConnectsTo(room2))
+    ConnectsTo(room2).direction[room1] = world.string_store.addString("north")
     
-    addComponent(world, room1, set(ConnectsTo(room2), {direction: northIdx}))
-    addComponent(world, room2, set(ConnectsTo(room1), {direction: southIdx}))
-    addComponent(world, room2, set(ConnectsTo(room3), {direction: eastIdx}))
-    addComponent(world, room3, set(ConnectsTo(room2), {direction: westIdx}))
+    addComponent(world, room2, ConnectsTo(room1))
+    ConnectsTo(room1).direction[room2] = world.string_store.addString("south")
+    
+    addComponent(world, room2, ConnectsTo(room3))
+    ConnectsTo(room3).direction[room2] = world.string_store.addString("east")
+    
+    addComponent(world, room3, ConnectsTo(room2))
+    ConnectsTo(room2).direction[room3] = world.string_store.addString("west")
     
     // Create landmarks
     const landmark1 = addEntity(world)
