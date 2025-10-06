@@ -101,7 +101,7 @@ export default function look(game, params) {
 // Action metadata for dynamic command generation and autocomplete
 export const metadata = {
     name: 'look',
-    aliases: ['l', 'examine', 'inspect'],
+    aliases: ['l', 'examine'],
     description: 'Look around the current room',
     parameters: [], // No parameters
     autocompletes: [], // No autocomplete needed

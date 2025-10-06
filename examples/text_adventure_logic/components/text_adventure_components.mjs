@@ -24,6 +24,7 @@ let Enemy = CreateComponent()
 let Room = CreateComponent()
 let Item = CreateComponent()
 let Landmark = CreateComponent()
+let Ears = CreateComponent() // Entities with this component can hear dialogue
 
 let Player = CreateComponent(z.object({
     respawnRoom: z.number().int().nonnegative() // entity id of room to respawn in
@@ -45,6 +46,7 @@ export {
     Room,
     Item,
     Landmark,
+    Ears,
     Player,
     Usable
 }

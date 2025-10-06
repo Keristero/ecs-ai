@@ -86,8 +86,13 @@ class GameState {
             return asNumber;
         }
         
-        // Try to find by name (case-insensitive)
+        // Special case: "self" always refers to the player
         const normalizedName = nameOrId.toLowerCase();
+        if (normalizedName === 'self') {
+            return this.playerId;
+        }
+        
+        // Try to find by name (case-insensitive)
         if (this.entityNameToIdMap[normalizedName] !== undefined) {
             return this.entityNameToIdMap[normalizedName];
         }
@@ -267,6 +272,16 @@ function getEntitiesByComponent(roomData, componentType) {
     
     const results = [];
     
+    // Special handling for 'Name' component - return all named entities
+    if (componentType === 'Name') {
+        // Get all entities from all types
+        for (const [typeName] of Object.entries(ENTITY_TYPES)) {
+            const entities = getEntitiesByType(roomData, typeName);
+            results.push(...entities);
+        }
+        return results;
+    }
+    
     for (const [typeName, typeConfig] of Object.entries(ENTITY_TYPES)) {
         if (typeConfig.componentType === componentType) {
             const entities = getEntitiesByType(roomData, typeName);
@@ -382,8 +397,13 @@ async function executeAction(state, actionName, params) {
         // Convert entity names to IDs in params
         const convertedParams = {};
         for (const [key, value] of Object.entries(params)) {
-            // Try to convert to entity ID if it's a string
-            convertedParams[key] = state.getEntityId(value);
+            // Only convert to entity ID if the parameter name ends with "Id"
+            // Otherwise keep as string (e.g., "direction", "entityName")
+            if (key.endsWith('Id')) {
+                convertedParams[key] = state.getEntityId(value);
+            } else {
+                convertedParams[key] = value;
+            }
         }
         
         const data = await fetchJSON(`${API_BASE_URL}/actions/${actionName}`, {
@@ -555,6 +575,14 @@ function getAutocompleteSuggestions(input, currentRoomData) {
             // Show all entities in room (enemies, items, landmarks) as potential targets
             if ((commandPart === 'use' || commandPart === 'u' || commandPart === 'apply' || commandPart === 'attack') && paramIndex === 1) {
                 const suggestions = [];
+                
+                // Always add "Self" as an option
+                if (!paramPrefix || 'self'.startsWith(paramPrefix)) {
+                    suggestions.push({
+                        text: 'Self',
+                        display: 'Self'
+                    });
+                }
                 
                 if (currentRoomData) {
                     // Get all targetable entities (enemies, items in room, landmarks)

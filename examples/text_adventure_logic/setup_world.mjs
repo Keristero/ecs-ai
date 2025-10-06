@@ -3,7 +3,7 @@ import {addEntity, addComponent, set, IsA} from 'bitecs'
 // Setup initial game world
 function setup_world(game) {
     const {world, prefabs} = game
-    const {Room, Landmark, Player, Hitpoints, Attributes, Name, Description} = world.components
+    const {Room, Landmark, Player, Name, Description} = world.components
     const {InRoom, ConnectsTo} = world.relations
     
     // Create rooms
@@ -53,18 +53,14 @@ function setup_world(game) {
     addComponent(world, enemy2, IsA(prefabs.skeleton_warrior))
     addComponent(world, enemy2, InRoom(room3))
     
-    // Create player
+    const enemy3 = addEntity(world)
+    addComponent(world, enemy3, IsA(prefabs.skeleton_warrior))
+    addComponent(world, enemy3, InRoom(room3))
+    
+    // Create player using prefab
     const player = addEntity(world)
-    addComponent(world, player, Player)
+    addComponent(world, player, IsA(prefabs.self))
     Player.respawnRoom[player] = room1  // entity ID of respawn room
-    addComponent(world, player, Hitpoints)
-    Hitpoints.max[player] = 100
-    Hitpoints.current[player] = 100
-    addComponent(world, player, Attributes)
-    Attributes.strength[player] = 5
-    Attributes.dexterity[player] = 3
-    Attributes.intelligence[player] = 2
-    addComponent(world, player, set(Name, {value: "Player"}))
     addComponent(world, player, InRoom(room1))
     
     console.log("Game world initialized!")
@@ -73,7 +69,7 @@ function setup_world(game) {
         player,
         rooms: [room1, room2, room3],
         items: [item1, item2],
-        enemies: [enemy1, enemy2],
+        enemies: [enemy1, enemy2, enemy3],
         landmarks: [landmark1]
     }
 }

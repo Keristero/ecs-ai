@@ -12,7 +12,7 @@ export default function create_rusty_sword_prefab(world) {
     addComponent(world, RustySword, set(Name, {value: "RustySword"}))
     addComponent(world, RustySword, set(Description, {value: "An old, rusty sword covered in grime."}))
     addComponent(world, RustySword, set(Usable, {
-        targetComponent: 'Enemy', // Can only target entities with Enemy component
+        targetComponent: 'Hitpoints', // Can only target entities with Enemy component
         modifyComponent: 'Hitpoints', // Modifies the Hitpoints component
         modifyField: 'current', // Specifically the 'current' field
         modifyAmount: -5 // Reduces by 5 (negative = damage)
