@@ -102,8 +102,18 @@ function applyAutocomplete() {
     }
     
     if (selected) {
-        const value = selected.getAttribute('data-value') || selected.textContent;
-        commandInput.value = value;
+        const completionText = selected.getAttribute('data-value') || selected.textContent;
+        
+        // Replace only the current word being typed
+        const currentValue = commandInput.value;
+        const parts = currentValue.split(/\s+/);
+        
+        // Replace the last part (current word) with the completion
+        parts[parts.length - 1] = completionText;
+        
+        // Reconstruct the command
+        commandInput.value = parts.join(' ');
+        
         autocompleteDiv.innerHTML = '';
         autocompleteDiv.style.display = 'none';
         autocompleteIndex = -1;
@@ -231,8 +241,18 @@ commandInput.addEventListener('keydown', async (e) => {
 // Click to select autocomplete
 autocompleteDiv.addEventListener('click', (e) => {
     if (e.target.classList.contains('autocomplete-item')) {
-        const value = e.target.getAttribute('data-value') || e.target.textContent;
-        commandInput.value = value;
+        const completionText = e.target.getAttribute('data-value') || e.target.textContent;
+        
+        // Replace only the current word being typed
+        const currentValue = commandInput.value;
+        const parts = currentValue.split(/\s+/);
+        
+        // Replace the last part (current word) with the completion
+        parts[parts.length - 1] = completionText;
+        
+        // Reconstruct the command
+        commandInput.value = parts.join(' ');
+        
         autocompleteDiv.innerHTML = '';
         autocompleteDiv.style.display = 'none';
         commandInput.focus();

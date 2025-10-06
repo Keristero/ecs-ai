@@ -12,7 +12,7 @@ export default function create_goblin_prefab(world, components) {
     addComponent(world, Goblin, Hitpoints)
     Hitpoints.max[Goblin] = 20
     Hitpoints.current[Goblin] = 20
-    addComponent(world, Goblin, set(Name, {value: "goblin"}))
+    addComponent(world, Goblin, set(Name, {value: "Goblin"}))
     addComponent(world, Goblin, set(Description, {value: "A small, green-skinned creature with sharp teeth."}))
     
     return Goblin

@@ -12,7 +12,7 @@ export default function create_skeleton_warrior_prefab(world, components) {
     addComponent(world, SkeletonWarrior, Hitpoints)
     Hitpoints.max[SkeletonWarrior] = 30
     Hitpoints.current[SkeletonWarrior] = 30
-    addComponent(world, SkeletonWarrior, set(Name, {value: "skeleton warrior"}))
+    addComponent(world, SkeletonWarrior, set(Name, {value: "SkeletonWarrior"}))
     addComponent(world, SkeletonWarrior, set(Description, {value: "An animated skeleton wielding a rusty blade."}))
     
     return SkeletonWarrior

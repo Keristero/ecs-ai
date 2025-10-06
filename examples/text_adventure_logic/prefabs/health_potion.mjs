@@ -9,7 +9,7 @@ export default function create_health_potion_prefab(world, components) {
     
     const HealthPotion = addPrefab(world)
     addComponent(world, HealthPotion, Item)
-    addComponent(world, HealthPotion, set(Name, {value: "health potion"}))
+    addComponent(world, HealthPotion, set(Name, {value: "HealthPotion"}))
     addComponent(world, HealthPotion, set(Description, {value: "A small vial filled with red liquid."}))
     addComponent(world, HealthPotion, set(Usable, {
         targetComponent: 'Hitpoints', // Can target any entity with Hitpoints (including self)

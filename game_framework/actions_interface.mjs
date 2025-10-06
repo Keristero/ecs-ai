@@ -102,25 +102,6 @@ function extractDescription(fileContent) {
     return match ? match[1].trim() : 'No description'
 }
 
-/**
- * Extract parameters from JSDoc @param tags
- */
-function extractParameters(fileContent) {
-    const params = {}
-    const paramRegex = /@param\s+\{([^}]+)\}\s+params\.(\w+)\s+-\s+(.+)/g
-    let match
-    
-    while ((match = paramRegex.exec(fileContent)) !== null) {
-        const [, type, name, description] = match
-        params[name] = {
-            type,
-            description: description.trim()
-        }
-    }
-    
-    return params
-}
-
 export {
     load_actions,
     action_defs

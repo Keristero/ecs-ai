@@ -541,7 +541,10 @@ function getAutocompleteSuggestions(input, currentRoomData) {
             
             return availableDirections
                 .filter(dir => !prefix || dir.startsWith(prefix))
-                .map(dir => ({ text: `${commandPart} ${dir}`, display: `${commandPart} ${dir}` }));
+                .map(dir => ({ 
+                    text: dir,  // Only the direction word
+                    display: dir 
+                }));
         }
         
         if (cmdDef && cmdDef.type === 'action' && cmdDef.autocompletes) {
@@ -561,19 +564,15 @@ function getAutocompleteSuggestions(input, currentRoomData) {
                         ...(currentRoomData.landmarks || [])
                     ];
                     
-                    // Build complete command with previous parameter
-                    const previousParams = parts.slice(1, -1).join(' ');
-                    
                     allEntities.forEach(entity => {
                         const entityName = entity.name || `Entity ${entity.id}`;
                         const lowerName = entityName.toLowerCase();
                         
                         // Match by name, not ID
                         if (!paramPrefix || lowerName.startsWith(paramPrefix)) {
-                            const suggestion = `${commandPart} ${previousParams} ${entityName}`;
                             suggestions.push({
-                                text: suggestion,
-                                display: suggestion
+                                text: entityName,  // Only the entity name
+                                display: entityName
                             });
                         }
                     });
@@ -601,10 +600,9 @@ function getAutocompleteSuggestions(input, currentRoomData) {
                             
                             // Match by name, not ID
                             if (!paramPrefix || lowerName.startsWith(paramPrefix)) {
-                                const suggestion = `${commandPart} ${entityName}`;
                                 suggestions.push({
-                                    text: suggestion,
-                                    display: suggestion
+                                    text: entityName,  // Only the entity name
+                                    display: entityName
                                 });
                             }
                         });
