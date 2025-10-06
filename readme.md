@@ -93,8 +93,25 @@ Response fields include the Ollama reply, the allowed/forbidden tool lists used 
 
 ## Tests
 
+Run all tests:
 ```bash
 npm test
+# or
+pnpm test
 ```
 
-Mocha runs all `*.test.mjs` files under `tests/`, including coverage for the new API endpoints and MCP integration helpers.
+Run client tests only:
+```bash
+npm run test:client
+# or
+pnpm test:client
+```
+
+### Test Coverage
+
+- **Framework Tests**: Core ECS functionality, game initialization, and system integration
+- **Interface Tests**: MCP tool definitions and ECS interface
+- **API Tests**: HTTP endpoints, validation, and error handling
+- **Client Tests**: Browser client logic, command parsing, and UI interactions (35 tests)
+
+Mocha runs all `*.test.mjs` files under `tests/` and `examples/*/tests/`, providing comprehensive coverage of both server and client code.

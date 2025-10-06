@@ -1,11 +1,18 @@
 import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import Logger from '../logger.mjs';
 import { tool_defs } from '../game_framework/ecs_interface.mjs';
+import { action_defs, load_actions } from '../game_framework/actions_interface.mjs';
 import { setupDocs } from './docs.mjs';
 import { ollama_defs, zPromptPayload } from './ollama_defs.mjs';
 import env from '../environment.mjs';
 
 const logger = new Logger('API Server', 'blue');
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const formatServerAddress = (server) => {
     const addressInfo = server.address();
@@ -22,7 +29,7 @@ const formatServerAddress = (server) => {
 };
 
 const createEndpoints = (app, game, defs, basePath) => {
-    // List all available tools
+    // List all available items (unified interface)
     app.get(`/${basePath}`, (req, res) => {
         const items = Object.entries(defs).map(([handle, def]) => ({
             handle,
@@ -32,24 +39,24 @@ const createEndpoints = (app, game, defs, basePath) => {
         res.json({ [basePath]: items });
     });
 
-    // Create individual endpoints
+    // Create individual endpoints (unified interface)
     for (const [handle, definition] of Object.entries(defs)) {
         app.post(`/${basePath}/${handle}`, async (req, res) => {
             try {
                 // Validate input if schema exists
                 if (definition?.details?.inputSchema) {
-                    const result = definition.details.inputSchema.safeParse(req.body);
-                    if (!result.success) {
-                        return res.status(400).json({ error: 'invalid_input', details: result.error });
+                    const validationResult = definition.details.inputSchema.safeParse(req.body);
+                    if (!validationResult.success) {
+                        return res.status(400).json({ error: 'invalid_input', details: validationResult.error });
                     }
                 }
-
-                // Run the tool
+                
+                // Run the action/tool (unified interface)
                 const result = await definition.run({ game, ...(req.body || {}) });
                 
                 // Return result
                 const response = typeof result === 'string' ? result : 
-                               result?.content?.[0]?.text || JSON.stringify(result);
+                               result?.content?.[0]?.text || result;
                 res.json({ handle, result: response });
 
             } catch (error) {
@@ -62,7 +69,14 @@ const createEndpoints = (app, game, defs, basePath) => {
 
 async function serve_api(game) {
     const app = express();
+    
+    // Enable CORS for all routes
+    app.use(cors());
+    
     app.use(express.json());
+
+    // Load actions before starting server
+    await load_actions();
 
     // Health check
     app.get('/health', (req, res) => res.json({ status: 'ok' }));
@@ -118,6 +132,9 @@ async function serve_api(game) {
 
     // Create ECS endpoints
     createEndpoints(app, game, tool_defs, 'tools');
+
+    // Create action endpoints
+    createEndpoints(app, game, action_defs, 'actions');
 
     // Setup API documentation
     setupDocs(app, { logger });

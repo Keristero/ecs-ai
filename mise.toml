@@ -19,7 +19,7 @@ run = "pnpm install"
 run = "pnpm test"
 
 [tasks.start]
-run = "node main.mjs"
+run = "pnpm exec nodemon --watch . --ext mjs,js,json main.mjs"
 
 [tasks.ollama]
 description = "Run the Ollama server (no MCP bridge)"

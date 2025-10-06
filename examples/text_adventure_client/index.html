@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Adventure Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #000;
+            color: #0f0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #terminal {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .output-line {
+            margin-bottom: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .error {
+            color: #f00;
+        }
+
+        .success {
+            color: #0f0;
+        }
+
+        .info {
+            color: #ff0;
+        }
+
+        .prompt {
+            color: #0ff;
+        }
+
+        #input-container {
+            display: flex;
+            padding: 10px 20px;
+            border-top: 1px solid #0f0;
+            position: relative;
+        }
+
+        #prompt-symbol {
+            color: #0ff;
+            margin-right: 5px;
+        }
+
+        #command-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            outline: none;
+        }
+
+        #autocomplete {
+            position: absolute;
+            bottom: 100%;
+            left: 20px;
+            background: #1a1a1a;
+            border: 1px solid #0f0;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .autocomplete-item {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background: #0f0;
+            color: #000;
+        }
+
+        #autocomplete:empty {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal"></div>
+    <div id="input-container">
+        <span id="prompt-symbol">&gt;</span>
+        <input type="text" id="command-input" autocomplete="off" autofocus>
+        <div id="autocomplete"></div>
+    </div>
+
+    <script src="client.js"></script>
+</body>
+</html>
