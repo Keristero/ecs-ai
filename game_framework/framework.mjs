@@ -1,45 +1,10 @@
 import env from "../environment.mjs";
 import path from "path";
 import fs from "fs/promises";
-import { createWorld, observe, onSet, onGet } from 'bitecs'
+import { createWorld } from 'bitecs'
 import Logger from "../logger.mjs";
+import { setupComponentObservers } from "./component_observers.mjs";
 const logger = new Logger("Game Framework","red");
-
-function apply_component_values(component, eid, values){
-    if (values == null) {
-        return
-    }
-
-    if (Array.isArray(component) || ArrayBuffer.isView(component)) {
-        component[eid] = values
-        return
-    }
-
-    for (const [field, value] of Object.entries(values)) {
-        const target = component[field]
-
-        if (Array.isArray(target) || ArrayBuffer.isView(target)) {
-            target[eid] = value
-        } else if (target && typeof target === 'object') {
-            target[eid] = value
-        } else {
-            component[field] = value
-        }
-    }
-}
-
-function register_component_onset_handlers(world, components){
-    for (const component of Object.values(components)) {
-        if (!component || typeof component !== 'object') {
-            continue
-        }
-
-        observe(world, onSet(component), (eid, params = {}) => {
-            apply_component_values(component, eid, params)
-            return params
-        })
-    }
-}
 
 async function _import_all_exports_from_directory(directory){
     logger.info(`Importing all modules from directory: ${directory}`)
@@ -98,10 +63,9 @@ async function initialize_game(){
     game.world = createWorld({
         components: components
     })
-
-    register_component_onset_handlers(game.world, components)
     
-    // Setup string store before loading prefabs
+    // Setup string store for components that need string storage
+    // This provides a generic way to store strings referenced by index
     const stringStore = []
     const addString = (str) => {
         const index = stringStore.length
@@ -116,47 +80,11 @@ async function initialize_game(){
         store: stringStore
     }
     
-    // Setup string store observers for Name, Description, and Hitpoints components
-    // These must be registered BEFORE prefabs are initialized
-    const {Name, Description, Hitpoints} = components
-    if (Name) {
-        observe(game.world, onSet(Name), (eid, params) => {
-            if (params && params.value) {
-                Name.stringIndex[eid] = addString(params.value)
-            }
-        })
-        
-        observe(game.world, onGet(Name), (eid) => ({
-            value: getString(Name.stringIndex[eid])
-        }))
-    }
-    
-    if (Description) {
-        observe(game.world, onSet(Description), (eid, params) => {
-            if (params && params.value) {
-                Description.stringIndex[eid] = addString(params.value)
-            }
-        })
-        
-        observe(game.world, onGet(Description), (eid) => ({
-            value: getString(Description.stringIndex[eid])
-        }))
-    }
-    
-    if (Hitpoints) {
-        observe(game.world, onSet(Hitpoints), (eid, params) => {
-            if (params && params.max !== undefined) {
-                Hitpoints.max[eid] = params.max
-            }
-            if (params && params.current !== undefined) {
-                Hitpoints.current[eid] = params.current
-            }
-        })
-        
-        observe(game.world, onGet(Hitpoints), (eid) => ({
-            max: Hitpoints.max[eid],
-            current: Hitpoints.current[eid]
-        }))
+    // If the game exports COMPONENT_METADATA, setup observers automatically
+    // This must happen BEFORE prefabs are loaded so that set() calls trigger onSet observers
+    if (components.COMPONENT_METADATA) {
+        logger.info(`Setting up component observers from COMPONENT_METADATA`)
+        setupComponentObservers(game.world, components.COMPONENT_METADATA)
     }
 
     // Load prefabs if they exist and initialize them

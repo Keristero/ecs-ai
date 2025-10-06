@@ -1,5 +1,6 @@
 import {query, addComponent, removeComponent} from 'bitecs'
 import {InRoom, InInventory} from '../systems/text_adventure_systems.mjs'
+import {z} from 'zod'
 
 /**
  * Drop action - player drops an item
@@ -44,4 +45,18 @@ export default function drop(game, params) {
     addComponent(world, item, InRoom(playerRoom))
     
     return {success: true, message: `You drop the item.`}
+}
+
+// Action metadata for dynamic command generation and autocomplete
+export const metadata = {
+    name: 'drop',
+    aliases: ['discard', 'toss'],
+    description: 'Drop an item from inventory',
+    parameters: ['itemId'], // Parameter names
+    autocompletes: [
+        ['Item'] // itemId parameter: must have Item component (and be in inventory - handled by client)
+    ],
+    inputSchema: z.object({
+        itemId: z.number().int().nonnegative().describe('ID of the item to drop')
+    })
 }

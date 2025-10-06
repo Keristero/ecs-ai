@@ -5,12 +5,18 @@ import {addPrefab, addComponent, set} from 'bitecs'
  * A consumable that restores health
  */
 export default function create_health_potion_prefab(world, components) {
-    const {Item, Name, Description} = components
+    const {Item, Name, Description, Usable} = components
     
     const HealthPotion = addPrefab(world)
     addComponent(world, HealthPotion, set(Item, {id: 2}))
     addComponent(world, HealthPotion, set(Name, {value: "health potion"}))
     addComponent(world, HealthPotion, set(Description, {value: "A small vial filled with red liquid."}))
+    addComponent(world, HealthPotion, set(Usable, {
+        targetComponent: 'Hitpoints', // Can target any entity with Hitpoints (including self)
+        modifyComponent: 'Hitpoints', // Modifies the Hitpoints component
+        modifyField: 'current', // Specifically the 'current' field
+        modifyAmount: 20 // Adds 20 (positive = healing)
+    }))
     
     return HealthPotion
 }

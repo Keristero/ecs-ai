@@ -28,44 +28,66 @@ function construct_action_run_function(func) {
 /**
  * Load all actions from the game's actions folder
  * Each action file should export a default function: (game, params) => result
+ * And optionally export metadata for enhanced client features
  * Actions will be wrapped to match the tool interface
  */
 async function load_actions() {
     const baseGameLogicPath = process.env.GAME_LOGIC_FOLDER_PATH || env.game_logic_folder_path
     const actionsFolder = path.resolve(baseGameLogicPath, 'actions')
     
-    // Use framework function to import all default exports
-    const actions = await import_default_exports_from_directory(actionsFolder)
-    
-    // Parse JSDoc and create action definitions matching tool interface
-    for (const [actionName, actionFn] of Object.entries(actions)) {
-        if (typeof actionFn !== 'function') {
-            logger.warn(`Action ${actionName} is not a function`)
-            continue
-        }
+    // Import all action modules (not just default exports, to get metadata too)
+    try {
+        const files = await fs.readdir(actionsFolder)
         
-        try {
-            const actionPath = path.join(actionsFolder, `${actionName}.mjs`)
-            const fileContent = await fs.readFile(actionPath, 'utf-8')
-            const description = extractDescription(fileContent)
-            const parameters = extractParameters(fileContent)
+        for (const file of files) {
+            if (!file.endsWith('.mjs')) continue
             
-            // Create action definition matching tool interface
-            action_defs[actionName] = {
-                details: {
-                    title: actionName.charAt(0).toUpperCase() + actionName.slice(1),
-                    description: description,
-                    inputSchema: null // Actions don't use Zod schemas yet, but could be added
-                },
-                run: construct_action_run_function(async ({ game, ...params }) => {
-                    return await actionFn(game, params)
-                })
+            const actionName = path.basename(file, '.mjs')
+            const actionPath = path.join(actionsFolder, file)
+            const module = await import(actionPath)
+            
+            const actionFn = module.default
+            const metadata = module.metadata
+            
+            if (typeof actionFn !== 'function') {
+                logger.warn(`Action ${actionName} is not a function`)
+                continue
             }
             
-            logger.info(`Loaded action: ${actionName}`)
-        } catch (error) {
-            logger.error(`Failed to load action ${actionName}:`, error.message)
+            try {
+                // Use metadata if available, otherwise fall back to JSDoc extraction
+                let description, inputSchema
+                
+                if (metadata) {
+                    description = metadata.description || 'No description'
+                    inputSchema = metadata.inputSchema || null
+                } else {
+                    // Fallback to JSDoc extraction
+                    const fileContent = await fs.readFile(actionPath, 'utf-8')
+                    description = extractDescription(fileContent)
+                    inputSchema = null
+                }
+                
+                // Create action definition matching tool interface
+                action_defs[actionName] = {
+                    details: {
+                        title: metadata?.name || actionName.charAt(0).toUpperCase() + actionName.slice(1),
+                        description: description,
+                        inputSchema: inputSchema
+                    },
+                    metadata: metadata || null, // Store full metadata for client use
+                    run: construct_action_run_function(async ({ game, ...params }) => {
+                        return await actionFn(game, params)
+                    })
+                }
+                
+                logger.info(`Loaded action: ${actionName}${metadata ? ' (with metadata)' : ''}`)
+            } catch (error) {
+                logger.error(`Failed to load action ${actionName}:`, error.message)
+            }
         }
+    } catch (error) {
+        logger.warn(`Could not read actions directory ${actionsFolder}:`, error.message)
     }
     
     logger.info(`Loaded ${Object.keys(action_defs).length} actions`)

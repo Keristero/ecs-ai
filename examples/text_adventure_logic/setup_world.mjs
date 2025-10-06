@@ -1,106 +1,10 @@
-import {addEntity, addComponent, observe, onSet, onGet, set, IsA} from 'bitecs'
+import {addEntity, addComponent, set, IsA} from 'bitecs'
 import {InRoom} from './systems/text_adventure_systems.mjs'
-
-// Setup string store observers for Name and Description components
-function setupStringStoreObservers(world) {
-    const {Name, Description, Connection, Hitpoints, Item, Enemy, Landmark} = world.components
-    
-    // Use the string store from world (created during game init)
-    const {getString, addString} = world.string_store
-    
-    // Observer for Name component - handles string storage
-    observe(world, onSet(Name), (eid, params) => {
-        if (params && params.value) {
-            Name.stringIndex[eid] = addString(params.value)
-        }
-    })
-    
-    // Observer for Name component - enables prefab inheritance
-    observe(world, onGet(Name), (eid) => ({
-        value: getString(Name.stringIndex[eid])
-    }))
-    
-    // Observer for Description component - handles string storage
-    observe(world, onSet(Description), (eid, params) => {
-        if (params && params.value) {
-            Description.stringIndex[eid] = addString(params.value)
-        }
-    })
-    
-    // Observer for Description component - enables prefab inheritance
-    observe(world, onGet(Description), (eid) => ({
-        value: getString(Description.stringIndex[eid])
-    }))
-    
-    // Observer for Hitpoints component - enables prefab inheritance
-    observe(world, onSet(Hitpoints), (eid, params) => {
-        if (params && params.max !== undefined) {
-            Hitpoints.max[eid] = params.max
-        }
-        if (params && params.current !== undefined) {
-            Hitpoints.current[eid] = params.current
-        }
-    })
-    
-    // Observer for Hitpoints component - enables prefab inheritance
-    observe(world, onGet(Hitpoints), (eid) => ({
-        max: Hitpoints.max[eid],
-        current: Hitpoints.current[eid]
-    }))
-    
-    // Observer for Connection direction - handles string storage
-    observe(world, onSet(Connection), (eid, params) => {
-        if (params && params.direction) {
-            Connection.direction[eid] = addString(params.direction)
-        }
-        if (params && params.from !== undefined) {
-            Connection.from[eid] = params.from
-        }
-        if (params && params.to !== undefined) {
-            Connection.to[eid] = params.to
-        }
-    })
-    
-    // Observer for Connection component - enables retrieval
-    observe(world, onGet(Connection), (eid) => ({
-        direction: getString(Connection.direction[eid]),
-        from: Connection.from[eid],
-        to: Connection.to[eid]
-    }))
-    
-    // Observer for Item component - enables prefab inheritance
-    observe(world, onSet(Item), (eid, params) => {
-        if (params && params.id !== undefined) {
-            Item.id[eid] = params.id
-        }
-    })
-    
-    observe(world, onGet(Item), (eid) => ({
-        id: Item.id[eid]
-    }))
-    
-    // Observer for Enemy component - enables prefab inheritance (enemy doesn't have id field, but we'll add for consistency)
-    // Enemy is just a tag component, but we can add an id if needed
-    
-    // Observer for Landmark component - enables prefab inheritance  
-    observe(world, onSet(Landmark), (eid, params) => {
-        if (params && params.id !== undefined) {
-            Landmark.id[eid] = params.id
-        }
-    })
-    
-    observe(world, onGet(Landmark), (eid) => ({
-        id: Landmark.id[eid]
-    }))
-}
 
 // Setup initial game world
 function setup_world(game) {
     const {world, prefabs} = game
     const {Room, Item, Landmark, Enemy, Player, Connection, Hitpoints, Attributes, Name, Description} = world.components
-    
-    // Setup string store observers before creating entities
-    setupStringStoreObservers(world)
     
     // Store InRoom on world.systems for prefabs to access
     world.systems = {InRoom}

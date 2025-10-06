@@ -1,6 +1,7 @@
 import {query, removeComponent, addComponent} from 'bitecs'
 import {InRoom} from '../systems/text_adventure_systems.mjs'
 import look from './look.mjs'
+import {z} from 'zod'
 
 /**
  * Move action - player moves in a direction
@@ -59,4 +60,18 @@ export default function move(game, params) {
         ...lookResult,
         message: `You move ${direction}.`
     }
+}
+
+// Action metadata for dynamic command generation and autocomplete
+export const metadata = {
+    name: 'move',
+    aliases: ['go', 'walk', 'm'],
+    description: 'Move in a direction',
+    parameters: ['direction'], // List of parameter names
+    autocompletes: [
+        [] // direction parameter - no entity targeting, handled specially by client (shows available exits)
+    ],
+    inputSchema: z.object({
+        direction: z.string().describe('Direction to move (north, south, east, west, etc.)')
+    })
 }

@@ -1,5 +1,6 @@
 import {query, removeComponent, addComponent} from 'bitecs'
 import {InRoom, InInventory} from '../systems/text_adventure_systems.mjs'
+import {z} from 'zod'
 
 /**
  * Pickup action - player picks up an item
@@ -43,4 +44,18 @@ export default function pickup(game, params) {
     addComponent(world, item, InInventory(playerId))
     
     return {success: true, message: `You pick up the item.`}
+}
+
+// Action metadata for dynamic command generation and autocomplete
+export const metadata = {
+    name: 'pickup',
+    aliases: ['get', 'take', 'grab'],
+    description: 'Pick up an item',
+    parameters: ['itemId'], // Parameter names
+    autocompletes: [
+        ['Item'] // itemId parameter: must have Item component (and be in current room - handled by client)
+    ],
+    inputSchema: z.object({
+        itemId: z.number().int().nonnegative().describe('ID of the item to pick up')
+    })
 }

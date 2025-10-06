@@ -34,7 +34,8 @@ const createEndpoints = (app, game, defs, basePath) => {
         const items = Object.entries(defs).map(([handle, def]) => ({
             handle,
             title: def?.details?.title ?? handle,
-            description: def?.details?.description ?? ''
+            description: def?.details?.description ?? '',
+            metadata: def?.metadata ?? null // Include metadata if available
         }));
         res.json({ [basePath]: items });
     });

@@ -1,5 +1,6 @@
 import {query, hasComponent, getComponent} from 'bitecs'
 import {InRoom, InInventory} from '../systems/text_adventure_systems.mjs'
+import {z} from 'zod'
 
 /**
  * Look action - get information about the current room
@@ -79,4 +80,14 @@ export default function look(game, params) {
             }
         })
     }
+}
+
+// Action metadata for dynamic command generation and autocomplete
+export const metadata = {
+    name: 'look',
+    aliases: ['l', 'examine', 'inspect'],
+    description: 'Look around the current room',
+    parameters: [], // No parameters
+    autocompletes: [], // No autocomplete needed
+    inputSchema: z.object({})
 }
