@@ -120,10 +120,10 @@ function CreateComponent(schema=z.object({})){
     component_metadata.enableObservers = function(world){
         const {getString, addString} = world.string_store
         
-        console.log('[CreateComponent] Setting up observers for component with schema:', Object.keys(schema.shape))
+        // console.log('[CreateComponent] Setting up observers for component with schema:', Object.keys(schema.shape))
         
         observe(world, onSet(data), (eid, params) => {
-            console.log('[Observer onSet] Triggered for eid:', eid, 'params:', params)
+            // console.log('[Observer onSet] Triggered for eid:', eid, 'params:', params)
             if (!params) return
             schema.parse(params)
 
@@ -131,18 +131,18 @@ function CreateComponent(schema=z.object({})){
                 const fieldType = schema.shape[param]
                 //if its a string, use addString
                 if(fieldType._def?.typeName === 'ZodString'){
-                    console.log('[Observer onSet] Setting string field', param, 'for eid', eid, 'value:', params[param])
+                    // console.log('[Observer onSet] Setting string field', param, 'for eid', eid, 'value:', params[param])
                     data[param][eid] = addString(params[param])
                 }
                 //if its a number, just assign it
                 else if(fieldType._def?.typeName === 'ZodNumber'){
-                    console.log('[Observer onSet] Setting number field', param, 'for eid', eid, 'value:', params[param])
+                    // console.log('[Observer onSet] Setting number field', param, 'for eid', eid, 'value:', params[param])
                     data[param][eid] = params[param]
                 }
             }
         })
         observe(world, onGet(data), (eid) => {
-            console.log('[Observer onGet] Triggered for eid:', eid)
+            // console.log('[Observer onGet] Triggered for eid:', eid)
             const result = {}
             for(const field in schema.shape){
                 const fieldType = schema.shape[field]
@@ -150,15 +150,15 @@ function CreateComponent(schema=z.object({})){
                 if(fieldType._def?.typeName === 'ZodString'){
                     const stringIndex = data[field][eid]
                     result[field] = getString(stringIndex)
-                    console.log('[Observer onGet] String field', field, 'index:', stringIndex, 'value:', result[field])
+                    // console.log('[Observer onGet] String field', field, 'index:', stringIndex, 'value:', result[field])
                 }
                 //if its a number, just assign it
                 else if(fieldType._def?.typeName === 'ZodNumber'){
                     result[field] = data[field][eid]
-                    console.log('[Observer onGet] Number field', field, 'value:', result[field])
+                    // console.log('[Observer onGet] Number field', field, 'value:', result[field])
                 }
             }
-            console.log('[Observer onGet] Returning result:', result)
+            // console.log('[Observer onGet] Returning result:', result)
             return result
         })
     }

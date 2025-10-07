@@ -58,12 +58,16 @@ async function initialize_game(){
     let systems_folder = path.resolve(baseGameLogicPath, 'systems')
     const systems = await _import_all_exports_from_directory(systems_folder)
 
+    // Try to load update system (optional for event-driven games)
     const updateModulePath = path.resolve(baseGameLogicPath, 'systems', 'update.mjs')
-    const {update} = await import(updateModulePath)
-    if(!update){
-        throw new Error("Game framework expects /systems/update.mjs to export a function as 'update' for the main game update system")
-    }else{
-        game.update = update
+    try {
+        const updateModule = await import(updateModulePath)
+        if(updateModule.update){
+            game.update = updateModule.update
+            logger.info("Loaded update system")
+        }
+    } catch (error) {
+        logger.info("No update.mjs found - using event-driven architecture")
     }
 
     game.world = createWorld({

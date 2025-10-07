@@ -11,6 +11,7 @@ import {
     successResult,
     failureResult
 } from '../helpers.mjs'
+import {createActionEvent} from '../action_helpers.mjs'
 
 /**
  * Look action - get information about the current room
@@ -28,14 +29,18 @@ export default function look(game, params) {
     // Validate actor has functional Eyes
     const eyesValidation = validateComponentForAction(world, actorId, Eyes, 'Eyes', 'look')
     if (!eyesValidation.valid) {
-        return failureResult(eyesValidation.error)
+        return createActionEvent('look', actorId, null, false, {
+            error: eyesValidation.error
+        })
     }
     
     // Find current room
     const currentRoom = findEntityRoom(world, actorId)
     
     if (!currentRoom) {
-        return failureResult("You are not in any room!")
+        return createActionEvent('look', actorId, null, false, {
+            error: "You are not in any room!"
+        })
     }
     
     // Get room info
@@ -76,15 +81,15 @@ export default function look(game, params) {
         message = eyesValidation.warning
     }
     
-    return successResult(message, {
-        roomId,
-        roomName,
-        roomDescription: roomDesc,
+    return createActionEvent('look', actorId, roomId, true, {
+        room_name: roomName,
+        room_description: roomDesc,
         exits,
         items: formatEntitiesDisplay(world, items),
         landmarks: formatEntitiesDisplay(world, landmarks),
         enemies: formatEntitiesDisplay(world, enemies),
-        inventory: formatEntitiesDisplay(world, inventory)
+        inventory: formatEntitiesDisplay(world, inventory),
+        message
     })
 }
 

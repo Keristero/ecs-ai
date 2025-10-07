@@ -6,6 +6,7 @@ import {
     findConnectedRoom,
     failureResult
 } from '../helpers.mjs'
+import {createActionEvent} from '../action_helpers.mjs'
 
 /**
  * Move action - entity moves in a direction
@@ -25,14 +26,19 @@ export default function move(game, params) {
     const currentRoom = findEntityRoom(world, actorId)
     
     if (!currentRoom) {
-        return failureResult("You are not in any room!")
+        return createActionEvent('move', actorId, null, false, {
+            error: "You are not in any room!"
+        })
     }
     
     // Find connected room in the specified direction
     const connectedRooms = findConnectedRoom(world, currentRoom, direction)
     
     if (connectedRooms.length === 0) {
-        return failureResult(`There is no exit to the ${direction}.`)
+        return createActionEvent('move', actorId, currentRoom, false, {
+            error: `There is no exit to the ${direction}.`,
+            direction
+        })
     }
     
     const targetRoom = connectedRooms[0]
@@ -44,11 +50,14 @@ export default function move(game, params) {
     // Automatically look at the new room
     const lookResult = look(game, {actorId})
     
-    // Add move message to the look result
-    return {
-        ...lookResult,
-        message: `You move ${direction}.`
-    }
+    // Return move event with look details
+    return createActionEvent('move', actorId, targetRoom, true, {
+        direction,
+        from_room_eid: currentRoom,
+        to_room_eid: targetRoom,
+        message: `You move ${direction}.`,
+        look_details: lookResult.action.details
+    })
 }
 
 // Action metadata for dynamic command generation and autocomplete

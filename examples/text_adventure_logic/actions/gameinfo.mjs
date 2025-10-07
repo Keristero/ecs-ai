@@ -1,4 +1,6 @@
 import {z} from 'zod'
+import {findEntityRoom} from '../helpers.mjs'
+import {createActionEvent} from '../action_helpers.mjs'
 
 /**
  * Get game info action - returns game state information
@@ -7,12 +9,14 @@ import {z} from 'zod'
  * @returns {Object} Game information including player ID
  */
 export default function gameinfo(game, params) {
-    return {
-        success: true,
-        playerId: game.playerId,
-        playerExists: game.playerId !== undefined,
+    const actorId = params.actorId ?? game.playerId
+    const roomEid = findEntityRoom(game.world, actorId)
+    
+    return createActionEvent('gameinfo', actorId, roomEid, true, {
+        player_eid: game.playerId,
+        player_exists: game.playerId !== undefined,
         message: `Player entity ID: ${game.playerId}`
-    }
+    })
 }
 
 // Action metadata for dynamic command generation and autocomplete

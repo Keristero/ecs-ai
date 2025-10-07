@@ -22,6 +22,11 @@ export async function queueEvent(queue, event) {
       system({game: queue.game, event})
     )
   )
+
+  // Turn end events can't be responded to with another event (per spec)
+  if (event.type === 'turn' && event.name === 'turn_end') {
+    return
+  }
   
   for (const result of systemResults) {
     if (result) {

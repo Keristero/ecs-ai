@@ -8,6 +8,7 @@ import {
     successResult,
     failureResult
 } from '../helpers.mjs'
+import {createActionEvent} from '../action_helpers.mjs'
 
 /**
  * Speak action - entity speaks dialogue in current room
@@ -27,7 +28,9 @@ export default function speak(game, params) {
     
     // Check if actor has Attributes component
     if (!hasComponent(world, actorId, Attributes)) {
-        return failureResult("Cannot speak: entity lacks Attributes component")
+        return createActionEvent('speak', actorId, false, {
+            error: "Cannot speak: entity lacks Attributes component"
+        })
     }
     
     // Get actor's intelligence
@@ -35,14 +38,18 @@ export default function speak(game, params) {
     const intelligence = attributes?.intelligence ?? 0
     
     if (intelligence < 2) {
-        return failureResult(`Cannot speak: intelligence too low (${intelligence}, needs 2+)`)
+        return createActionEvent('speak', actorId, false, {
+            error: `Cannot speak: intelligence too low (${intelligence}, needs 2+)`
+        })
     }
     
     // Find current room
     const currentRoom = findEntityRoom(world, actorId)
     
     if (!currentRoom) {
-        return failureResult("You are not in any room!")
+        return createActionEvent('speak', actorId, null, false, {
+            error: "You are not in any room!"
+        })
     }
     
     // Get all entities in the room
@@ -67,18 +74,10 @@ export default function speak(game, params) {
     console.log(`Listeners: ${listeners.length > 0 ? listenerNames.map(l => l.name).join(', ') : 'none'}`)
     console.log('================\n')
     
-    return successResult(
-        `You say: "${dialogue}"`,
-        {
-            roomId: currentRoom,
-            roomName,
-            speakerId: actorId,
-            speakerName,
-            dialogue,
-            listeners: listenerNames,
-            listenerCount: listeners.length
-        }
-    )
+    return createActionEvent('speak', actorId, currentRoom, true, {
+        dialogue,
+        message: `You say: "${dialogue}"`
+    })
 }
 
 // Action metadata for dynamic command generation and autocomplete

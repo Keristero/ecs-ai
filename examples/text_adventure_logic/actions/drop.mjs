@@ -8,6 +8,7 @@ import {
     successResult,
     failureResult
 } from '../helpers.mjs'
+import {createActionEvent} from '../action_helpers.mjs'
 
 /**
  * Drop action - entity drops an item
@@ -25,28 +26,38 @@ export default function drop(game, params) {
     const {Has} = world.relations
     const {Item, Hands} = world.components
     
+    // Find actor's current room first
+    const actorRoom = findEntityRoom(world, actorId)
+    
+    if (!actorRoom) {
+        return createActionEvent('drop', actorId, null, false, {
+            error: "You are not in any room!"
+        })
+    }
+    
     // Validate actor has functional Hands
     const handsValidation = validateComponentForAction(world, actorId, Hands, 'Hands', 'drop items')
     if (!handsValidation.valid) {
-        return failureResult(handsValidation.error)
+        return createActionEvent('drop', actorId, actorRoom, false, {
+            error: handsValidation.error
+        })
     }
     
     // Validate item exists and has Item component
     const validation = validateEntity(world, itemId, [Item])
     if (!validation.valid) {
-        return failureResult("Item not found!")
+        return createActionEvent('drop', actorId, actorRoom, false, {
+            error: "Item not found!",
+            item_eid: itemId
+        })
     }
     
     // Check if actor has the item in inventory
     if (!hasItemInInventory(world, actorId, itemId)) {
-        return failureResult("You don't have that item!")
-    }
-    
-    // Find actor's current room
-    const actorRoom = findEntityRoom(world, actorId)
-    
-    if (!actorRoom) {
-        return failureResult("You are not in any room!")
+        return createActionEvent('drop', actorId, actorRoom, false, {
+            error: "You don't have that item!",
+            item_eid: itemId
+        })
     }
     
     // Remove from inventory using Has relation and add to room
@@ -59,7 +70,10 @@ export default function drop(game, params) {
         message += ` (${handsValidation.warning})`
     }
     
-    return successResult(message)
+    return createActionEvent('drop', actorId, actorRoom, true, {
+        item_eid: itemId,
+        message
+    })
 }
 
 // Action metadata for dynamic command generation and autocomplete

@@ -2,11 +2,13 @@ import {hasComponent, getComponent} from 'bitecs'
 import {z} from 'zod'
 import {
     findEntityByName,
+    findEntityRoom,
     getAllComponentsData,
     validateComponentForAction,
     successResult,
     failureResult
 } from '../helpers.mjs'
+import {createActionEvent} from '../action_helpers.mjs'
 
 /**
  * Inspect action - get detailed information about any named entity
@@ -23,16 +25,22 @@ export default function inspect(game, params) {
     const {world} = game
     const {Name, Eyes} = world.components
     
+    const roomEid = findEntityRoom(world, actorId)
+    
     // Validate actor has functional Eyes
     const eyesValidation = validateComponentForAction(world, actorId, Eyes, 'Eyes', 'inspect')
     if (!eyesValidation.valid) {
-        return failureResult(eyesValidation.error)
+        return createActionEvent('inspect', actorId, roomEid, false, {
+            error: eyesValidation.error
+        })
     }
     
     // Find entity by name
     const targetEntity = findEntityByName(world, params.entityName)
     if (!targetEntity) {
-        return failureResult(`No entity found with name "${params.entityName}"`)
+        return createActionEvent('inspect', actorId, roomEid, false, {
+            error: `No entity found with name "${params.entityName}"`
+        })
     }
     
     // Get all components for this entity
@@ -99,11 +107,12 @@ export default function inspect(game, params) {
         summary += ` (${eyesValidation.warning})`
     }
     
-    return successResult(summary, {
-        entityId: targetEntity,
-        entityName: params.entityName,
+    return createActionEvent('inspect', actorId, roomEid, true, {
+        entity_eid: targetEntity,
+        entity_name: params.entityName,
         components: entityComponents,
-        relations: entityRelations
+        relations: entityRelations,
+        message: summary
     })
 }
 

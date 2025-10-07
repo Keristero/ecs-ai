@@ -8,6 +8,7 @@ import {
     successResult,
     failureResult
 } from '../helpers.mjs'
+import {createActionEvent} from '../action_helpers.mjs'
 
 /**
  * Pickup action - entity picks up an item
@@ -25,25 +26,32 @@ export default function pickup(game, params) {
     const {Has} = world.relations
     const {Item, Hands} = world.components
     
+    const actorRoom = findEntityRoom(world, actorId)
+    
     // Validate actor has functional Hands
     const handsValidation = validateComponentForAction(world, actorId, Hands, 'Hands', 'pick up items')
     if (!handsValidation.valid) {
-        return failureResult(handsValidation.error)
+        return createActionEvent('pickup', actorId, actorRoom, false, {
+            error: handsValidation.error
+        })
     }
     
     // Validate item exists and has Item component
     const validation = validateEntity(world, itemId, [Item])
     if (!validation.valid) {
-        return failureResult("Item not found!")
+        return createActionEvent('pickup', actorId, actorRoom, false, {
+            error: "Item not found!",
+            item_eid: itemId
+        })
     }
     
     // Check if item is in the same room as actor
     if (!areInSameRoom(world, actorId, itemId)) {
-        return failureResult("That item is not here!")
+        return createActionEvent('pickup', actorId, actorRoom, false, {
+            error: "That item is not here!",
+            item_eid: itemId
+        })
     }
-    
-    // Get rooms for transfer
-    const actorRoom = findEntityRoom(world, actorId)
     
     // Remove item from room and add to actor's inventory using Has relation
     removeComponent(world, actorRoom, Has(itemId))
@@ -55,7 +63,10 @@ export default function pickup(game, params) {
         message += ` (${handsValidation.warning})`
     }
     
-    return successResult(message)
+    return createActionEvent('pickup', actorId, actorRoom, true, {
+        item_eid: itemId,
+        message
+    })
 }
 
 // Action metadata for dynamic command generation and autocomplete

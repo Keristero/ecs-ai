@@ -1,7 +1,8 @@
 import {query} from 'bitecs'
 import use from '../actions/use.mjs'
+import {endTurn} from '../event_queue.mjs'
 
-const npc_turn_system = ({game, event}) => {
+const npc_turn_system = async ({game, event}) => {
   if (event.type !== 'turn' || event.name !== 'turn_start') return null
   
   const {world} = game
@@ -17,7 +18,11 @@ const npc_turn_system = ({game, event}) => {
     return entitiesInRoom.includes(actorEid)
   })
   
-  if (!enemyRoom) return null
+  if (!enemyRoom) {
+    // No valid room, end turn
+    await endTurn(game.eventQueue)
+    return null
+  }
   
   const playersInRoom = query(world, [Player, InRoom(enemyRoom)])
   
@@ -28,18 +33,29 @@ const npc_turn_system = ({game, event}) => {
       return Item[itemEid] && Usable[itemEid]
     })
     
-    if (!weapon) return null
+    if (!weapon) {
+      // No weapon, end turn
+      await endTurn(game.eventQueue)
+      return null
+    }
     
     const target = playersInRoom[Math.floor(Math.random() * playersInRoom.length)]
     
     // Call the use action and return its event directly
-    return use(game, {
+    const actionEvent = use(game, {
       actorId: actorEid,
       itemId: weapon,
       targetId: target
     })
+    
+    // After action completes, end turn
+    await endTurn(game.eventQueue)
+    
+    return actionEvent
   }
   
+  // No targets, end turn
+  await endTurn(game.eventQueue)
   return null
 }
 
