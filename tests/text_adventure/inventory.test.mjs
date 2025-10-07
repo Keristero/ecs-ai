@@ -56,7 +56,7 @@ if (initialLook.items.length > 0) {
     
     // Verify item is back in room
     if (afterDrop.items.find(i => i.id === firstItem.id)) {
-        console.log('✓ Item successfully moved back to room via InRoom relation')
+        console.log('✓ Item successfully moved back to room via Has relation')
     } else {
         console.log('✗ ERROR: Item not found in room')
     }

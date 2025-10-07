@@ -14,13 +14,13 @@ import {query, hasComponent, getComponent, addComponent, removeComponent} from '
  * @returns {number|null} Room entity ID or null if not found
  */
 export function findEntityRoom(world, entityId) {
-    const {InRoom} = world.relations
+    const {Has} = world.relations
     const {Room} = world.components
     const rooms = query(world, [Room])
     
+    // Find which room Has this entity
     return rooms.find(room => {
-        const entities_in_room = query(world, [InRoom(room)])
-        return entities_in_room.includes(entityId)
+        return hasComponent(world, room, Has(entityId))
     }) ?? null
 }
 
@@ -31,8 +31,15 @@ export function findEntityRoom(world, entityId) {
  * @returns {Array<number>} Array of entity IDs in the room
  */
 export function getEntitiesInRoom(world, roomId) {
-    const {InRoom} = world.relations
-    return query(world, [InRoom(roomId)])
+    const {Has} = world.relations
+    const entities = []
+    // Iterate through potential entity IDs to find what the room Has
+    for (let eid = 0; eid < 1000; eid++) {
+        if (hasComponent(world, roomId, Has(eid))) {
+            entities.push(eid)
+        }
+    }
+    return entities
 }
 
 /**
@@ -44,8 +51,9 @@ export function getEntitiesInRoom(world, roomId) {
 export function getInventoryItems(world, entityId) {
     const {Has} = world.relations
     const {Item} = world.components
-    // Query for items that the entity Has
-    return query(world, [Item, Has(entityId)])
+    // Find all items that the entity Has
+    const allItems = query(world, [Item])
+    return allItems.filter(itemId => hasComponent(world, entityId, Has(itemId)))
 }
 
 /**

@@ -22,7 +22,7 @@ export default function pickup(game, params) {
     const actorId = params.actorId ?? game.playerId
     const {itemId} = params
     const {world} = game
-    const {InRoom, Has} = world.relations
+    const {Has} = world.relations
     const {Item, Hands} = world.components
     
     // Validate actor has functional Hands
@@ -46,7 +46,7 @@ export default function pickup(game, params) {
     const actorRoom = findEntityRoom(world, actorId)
     
     // Remove item from room and add to actor's inventory using Has relation
-    removeComponent(world, itemId, InRoom(actorRoom))
+    removeComponent(world, actorRoom, Has(itemId))
     addComponent(world, actorId, Has(itemId))
     
     // Build message with warning if Hands impaired

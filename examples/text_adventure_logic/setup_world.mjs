@@ -4,7 +4,7 @@ import {addEntity, addComponent, set, IsA} from 'bitecs'
 function setup_world(game) {
     const {world, prefabs} = game
     const {Room, Landmark, Player, Name, Description} = world.components
-    const {InRoom, ConnectsTo} = world.relations
+    const {Has, ConnectsTo} = world.relations
     
     // Create rooms
     const room1 = addEntity(world)
@@ -33,34 +33,33 @@ function setup_world(game) {
     const landmark1 = addEntity(world)
     addComponent(world, landmark1, Landmark)
     addComponent(world, landmark1, set(Name, {value: "ancient altar"}))
-    addComponent(world, landmark1, InRoom(room3))
+    addComponent(world, room3, Has(landmark1))
     
     // Create items using prefabs - instantiate from prefab templates
     const item1 = addEntity(world)
     addComponent(world, item1, IsA(prefabs.rusty_sword))
-    addComponent(world, item1, InRoom(room1))
+    addComponent(world, room1, Has(item1))
     
     const item2 = addEntity(world)
     addComponent(world, item2, IsA(prefabs.health_potion))
-    addComponent(world, item2, InRoom(room2))
+    addComponent(world, room2, Has(item2))
     
     // Create enemies using prefabs - instantiate from prefab templates
     const enemy1 = addEntity(world)
     addComponent(world, enemy1, IsA(prefabs.goblin))
-    addComponent(world, enemy1, InRoom(room2))
+    addComponent(world, room2, Has(enemy1))
     
     const enemy2 = addEntity(world)
     addComponent(world, enemy2, IsA(prefabs.skeleton_warrior))
-    addComponent(world, enemy2, InRoom(room3))
+    addComponent(world, room3, Has(enemy2))
     // Give this skeleton warrior a rusty sword
     const sword1 = addEntity(world)
     addComponent(world, sword1, IsA(prefabs.rusty_sword))
-    const {Has} = world.relations
     addComponent(world, enemy2, Has(sword1))
     
     const enemy3 = addEntity(world)
     addComponent(world, enemy3, IsA(prefabs.skeleton_warrior))
-    addComponent(world, enemy3, InRoom(room3))
+    addComponent(world, room3, Has(enemy3))
     // Give this skeleton warrior a rusty sword
     const sword2 = addEntity(world)
     addComponent(world, sword2, IsA(prefabs.rusty_sword))
@@ -70,7 +69,7 @@ function setup_world(game) {
     const player = addEntity(world)
     addComponent(world, player, IsA(prefabs.self))
     Player.respawnRoom[player] = room1  // entity ID of respawn room
-    addComponent(world, player, InRoom(room1))
+    addComponent(world, room1, Has(player))
     
     console.log("Game world initialized!")
     

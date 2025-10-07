@@ -55,15 +55,15 @@ describe('Inspect Action', function() {
     })
     
     it('should show relations if entity has them', function() {
-        // The rusty sword should have InRoom relation
+        // The rusty sword should have Has relation (room Has sword)
         const result = inspect(game, {entityName: 'RustySword'})
         
         expect(result.success).to.be.true
         expect(result.relations).to.be.an('object')
         
-        // Should have InRoom relation
+        // Should have Has relation (showing which room/entity has this sword)
         if (Object.keys(result.relations).length > 0) {
-            expect(result.relations).to.have.property('InRoom')
+            expect(result.relations).to.have.property('Has')
         }
     })
     

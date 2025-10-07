@@ -19,7 +19,7 @@ export default function move(game, params) {
     const actorId = params.actorId ?? game.playerId
     const {direction} = params
     const {world} = game
-    const {InRoom} = world.relations
+    const {Has} = world.relations
     
     // Find current room
     const currentRoom = findEntityRoom(world, actorId)
@@ -38,8 +38,8 @@ export default function move(game, params) {
     const targetRoom = connectedRooms[0]
     
     // Move actor to new room
-    removeComponent(world, actorId, InRoom(currentRoom))
-    addComponent(world, actorId, InRoom(targetRoom))
+    removeComponent(world, currentRoom, Has(actorId))
+    addComponent(world, targetRoom, Has(actorId))
     
     // Automatically look at the new room
     const lookResult = look(game, {actorId})
