@@ -14,21 +14,108 @@ function printLine(text, className = '') {
     terminal.scrollTop = terminal.scrollHeight;
 }
 
-function displayRoomInfo(roomData) {
-    const lines = formatRoomInfo(roomData);
-    lines.forEach(line => {
-        let className = '';
-        if (line.startsWith('===') || line.startsWith('Exits:') || 
-            line.includes('Items:') || line.includes('Landmarks:') || 
-            line.includes('Enemies:') || line.includes('Inventory:')) {
-            className = 'info';
+function displayEvent(event) {
+    // Handle look action - display full room details
+    if (event.type === 'action' && event.name === 'look' && event.action?.success) {
+        displayRoomInfo(event.action.details);
+        return;
+    }
+    
+    // Filter events by current room (skip events from other rooms)
+    const currentRoomId = gameState.getCurrentRoomId();
+    const isGlobalEvent = event.type === 'round' || event.type === 'turn';
+    const eventRoomId = event.action?.room_eid || event.system?.details?.room_eid;
+    const isInCurrentRoom = !eventRoomId || eventRoomId === currentRoomId;
+    
+    if (!isGlobalEvent && !isInCurrentRoom) return;
+    
+    // Display event summary
+    const status = event.action?.success ? ' ✓' : event.action?.success === false ? ' ✗' : '';
+    const message = event.action?.details?.message || event.action?.details?.error || '';
+    const eventDesc = `[${event.type}] ${event.name}${status}${message ? `: ${message}` : ''}`;
+    
+    printLine(eventDesc, event.action?.success ? 'success' : 'dim');
+}
+
+function displayRoomInfo(details) {
+    if (!details) return;
+    
+    const lines = [];
+    
+    // Room header
+    lines.push('', `=== ${details.room_name || 'Unknown Room'} ===`);
+    
+    // Room description
+    if (details.room_description) {
+        lines.push(details.room_description, '');
+    }
+    
+    // Exits
+    if (details.exits?.length > 0) {
+        lines.push(`Exits: ${details.exits.join(', ')}`, '');
+    }
+    
+    // Display entity lists
+    const entityTypes = [
+        { key: 'landmarks', label: 'Landmarks' },
+        { key: 'items', label: 'Items' },
+        { key: 'enemies', label: 'Enemies' },
+        { key: 'inventory', label: 'Inventory', emptyMsg: 'Inventory: empty' }
+    ];
+    
+    entityTypes.forEach(({ key, label, emptyMsg }) => {
+        const entities = details[key] || [];
+        
+        if (entities.length === 0) {
+            if (emptyMsg) lines.push(emptyMsg);
+            return;
         }
+        
+        lines.push(`${label}:`);
+        entities.forEach(entity => {
+            lines.push(`  • ${entity.name || entity.id}`);
+            if (entity.description) lines.push(`    ${entity.description}`);
+        });
+        lines.push('');
+    });
+    
+    // Display message if any
+    if (details.message) {
+        lines.push(details.message);
+    }
+    
+    // Print all lines
+    lines.forEach(line => {
+        const className = line.startsWith('===') || line.startsWith('Exits:') || 
+                         line.match(/^(Landmarks|Items|Enemies|Inventory):$/) ? 'info' : '';
         printLine(line, className);
     });
 }
 
 function displayRoundState(roundState) {
-    const lines = formatRoundState(roundState);
+    if (!roundState) return;
+    
+    const lines = [];
+    lines.push('', '=== Round State ===');
+    
+    // Current turn indicator
+    const isPlayerTurn = roundState.currentActorEid === roundState.playerId;
+    lines.push(isPlayerTurn ? '👤 YOUR TURN' : `🤖 NPC TURN (Entity ${roundState.currentActorEid})`);
+    lines.push('');
+    
+    // Systems status
+    if (roundState.systemsResolved && Object.keys(roundState.systemsResolved).length > 0) {
+        lines.push('Systems Status:');
+        Object.entries(roundState.systemsResolved).forEach(([systemName, resolved]) => {
+            lines.push(`  ${resolved ? '✅' : '⏳'} ${systemName}: ${resolved ? 'resolved' : 'pending'}`);
+        });
+        lines.push('');
+    }
+    
+    // Event count
+    lines.push(`Events this round: ${roundState.events?.length || 0}`, '');
+    
+    // Print lines
     lines.forEach(line => {
         let className = '';
         if (line.startsWith('===')) className = 'info';
@@ -36,31 +123,6 @@ function displayRoundState(roundState) {
         else if (line.includes('NPC TURN')) className = 'dim';
         printLine(line, className);
     });
-}
-
-function displayEvent(event) {
-    const currentRoomId = gameState.getCurrentRoomId();
-    const isGlobalEvent = event.type === 'round' || event.type === 'turn';
-    const isInCurrentRoom = event.action?.room_eid === currentRoomId || event.action?.room_eid === undefined;
-    const systemRoomId = event.system?.details?.room_eid;
-    const isSystemInCurrentRoom = systemRoomId === currentRoomId || systemRoomId === undefined;
-    
-    if (!isGlobalEvent && !isInCurrentRoom && !isSystemInCurrentRoom) return;
-    
-    if (event.type === 'action' && event.name === 'look' && event.action?.success) {
-        displayRoomInfo(event.action.details);
-        return;
-    }
-    
-    let eventDesc = `[${event.type}] ${event.name}`;
-    
-    if (event.action) {
-        eventDesc += event.action.success ? ' ✓' : ' ✗';
-        const message = event.action.details?.message || event.action.details?.error;
-        if (message) eventDesc += `: ${message}`;
-    }
-    
-    printLine(eventDesc, event.action?.success ? 'success' : 'dim');
 }
 
 async function executeCommand(input) {
