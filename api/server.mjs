@@ -159,31 +159,58 @@ async function serve_api(game) {
     const wss = new WebSocketServer({ server });
     const clients = new Set();
 
-    // Store reference in game for emitting events
+    // Store reference to clients in game
     game.wsClients = clients;
-    game.broadcastEvent = (event) => {
-        const message = JSON.stringify(event);
-        logger.info(`Broadcasting to ${clients.size} client(s): ${event.type}`);
-        
-        let successCount = 0;
-        let failCount = 0;
-        
-        clients.forEach(client => {
-            if (client.readyState === 1) { // WebSocket.OPEN
-                try {
-                    client.send(message);
-                    successCount++;
-                } catch (error) {
-                    logger.error(`Failed to send to client:`, error.message);
+    
+    // Subscribe to event queue events using EventEmitter pattern
+    if (game.eventQueue) {
+        // Subscribe to individual events
+        game.eventQueue.on('event', (event) => {
+            const message = JSON.stringify({
+                type: 'event',
+                data: event
+            });
+            logger.info(`Broadcasting event to ${clients.size} client(s): ${event.type}:${event.name}`);
+            
+            let successCount = 0;
+            let failCount = 0;
+            
+            clients.forEach(client => {
+                if (client.readyState === 1) { // WebSocket.OPEN
+                    try {
+                        client.send(message);
+                        successCount++;
+                    } catch (error) {
+                        logger.error(`Failed to send to client:`, error.message);
+                        failCount++;
+                    }
+                } else {
                     failCount++;
                 }
-            } else {
-                failCount++;
-            }
+            });
+            
+            logger.info(`Event broadcast result: ${successCount} sent, ${failCount} failed`);
         });
         
-        logger.info(`Broadcast result: ${successCount} sent, ${failCount} failed`);
-    };
+        // Subscribe to round state updates
+        game.eventQueue.on('round_state', (roundState) => {
+            const message = JSON.stringify({
+                type: 'round_state',
+                data: roundState
+            });
+            logger.info(`Broadcasting round state to ${clients.size} client(s) - ${roundState.events.length} events`);
+            
+            clients.forEach(client => {
+                if (client.readyState === 1) {
+                    try {
+                        client.send(message);
+                    } catch (error) {
+                        logger.error(`Failed to send round state to client:`, error.message);
+                    }
+                }
+            });
+        });
+    }
 
     wss.on('connection', (ws) => {
         logger.info('Client connected via WebSocket');

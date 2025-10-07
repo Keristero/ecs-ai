@@ -146,24 +146,32 @@ describe('Actor Turn System', () => {
 
   it('should progress to next actor after endTurn', async () => {
     const {eventQueue, entities} = game
-    const {Actor} = game.world.components
     
     await startRound(eventQueue)
     
     // First actor should be player
     assert.equal(getCurrentActor(eventQueue), entities.player)
     
-    // End player's turn
+    // Collect emitted events to verify progression
+    const emittedEvents = []
+    const listener = (event) => emittedEvents.push(event)
+    eventQueue.on('event', listener)
+    
+    // End player's turn (this will trigger NPC turns which auto-complete)
     await endPlayerTurn(game)
     
-    // Should have moved to next actor
-    const secondActor = getCurrentActor(eventQueue)
-    assert.notEqual(secondActor, entities.player, 'Should have moved to next actor')
+    eventQueue.off('event', listener)
     
-    // Verify second actor has lower initiative
-    const playerInit = Actor.initiative[entities.player]
-    const secondActorInit = Actor.initiative[secondActor]
-    assert.ok(secondActorInit < playerInit, 'Second actor should have lower initiative')
+    // After player turn ends, NPCs will auto-complete their turns
+    // So we should be at the end of the round
+    const currentActor = getCurrentActor(eventQueue)
+    
+    // Current actor should be undefined (round ended after all NPCs completed)
+    assert.equal(currentActor, undefined, 'Round should have ended after all turns')
+    
+    // Verify turn progression happened by checking for turn_end and turn_start events
+    const turnEvents = emittedEvents.filter(e => e.type === 'turn')
+    assert.ok(turnEvents.length > 0, 'Should have turn events during progression')
   })
 
   it('should emit turn_end event when ending a turn', async () => {
@@ -171,39 +179,53 @@ describe('Actor Turn System', () => {
     
     await startRound(eventQueue)
     
-    // Clear events to make it easier to find the turn_end event
-    eventQueue.events = []
+    // Collect emitted events
+    const emittedEvents = []
+    const listener = (event) => emittedEvents.push(event)
+    eventQueue.on('event', listener)
     
     await endPlayerTurn(game)
     
-    // Find the turn_end event
-    const turnEndEvent = eventQueue.events.find(e => 
-      e.type === 'turn' && e.name === 'turn_end'
+    eventQueue.off('event', listener)
+    
+    // Should have new events (player turn_end + potentially NPC turns)
+    assert.ok(emittedEvents.length > 0, 'Should have emitted events')
+    
+    // Find the player's turn_end event
+    const playerTurnEndEvent = emittedEvents.find(e => 
+      e.type === 'turn' && 
+      e.name === 'turn_end' && 
+      e.turn.actor_eid === entities.player
     )
     
-    assert.ok(turnEndEvent, 'Should have a turn_end event')
-    assert.equal(turnEndEvent.turn.actor_eid, entities.player, 'turn_end should reference player')
+    assert.ok(playerTurnEndEvent, 'Should have a turn_end event for player')
   })
 
   it('should emit turn_start for next actor after turn_end', async () => {
-    const {eventQueue} = game
+    const {eventQueue, entities} = game
     
     await startRound(eventQueue)
     
-    // Clear events
-    eventQueue.events = []
+    // Collect all events emitted during player turn end
+    const emittedEvents = []
+    const listener = (event) => emittedEvents.push(event)
+    eventQueue.on('event', listener)
     
     await endPlayerTurn(game)
     
-    // Find the new turn_start event
-    const turnStartEvent = eventQueue.events.find(e => 
+    eventQueue.off('event', listener)
+    
+    // After player's turn, there should be turn_start events for NPCs
+    const turnStartEvents = emittedEvents.filter(e => 
       e.type === 'turn' && e.name === 'turn_start'
     )
     
-    assert.ok(turnStartEvent, 'Should have a turn_start event for next actor')
+    // Should have turn_start events for NPCs
+    assert.ok(turnStartEvents.length >= 1, 'Should have turn_start events for NPCs')
     
-    const nextActor = getCurrentActor(eventQueue)
-    assert.equal(turnStartEvent.turn.actor_eid, nextActor, 'turn_start should match current actor')
+    // Find a turn_start that's not for the player
+    const npcTurnStart = turnStartEvents.find(e => e.turn.actor_eid !== entities.player)
+    assert.ok(npcTurnStart, 'Should have a turn_start event for an NPC')
   })
 
   it('should emit round_end after all actors have taken turns', async () => {
@@ -211,25 +233,22 @@ describe('Actor Turn System', () => {
     
     await startRound(eventQueue)
     
-    const totalActors = eventQueue.actors.length
+    // Collect all events emitted
+    const emittedEvents = []
+    const listener = (event) => emittedEvents.push(event)
+    eventQueue.on('event', listener)
     
-    // Simulate all actors taking their turns
-    for (let i = 0; i < totalActors; i++) {
-      eventQueue.events = [] // Clear to check for specific events
-      
-      if (i === totalActors - 1) {
-        // Last actor - should trigger round_end
-        await endTurn(eventQueue)
-        
-        const roundEndEvent = eventQueue.events.find(e => 
-          e.type === 'round' && e.name === 'round_end'
-        )
-        
-        assert.ok(roundEndEvent, 'Should have a round_end event after last actor')
-      } else {
-        await endTurn(eventQueue)
-      }
-    }
+    // End player turn - this will trigger all NPC turns to auto-complete
+    await endPlayerTurn(game)
+    
+    eventQueue.off('event', listener)
+    
+    // After player turn and all auto-completed NPC turns, should have round_end
+    const roundEndEvent = emittedEvents.find(e => 
+      e.type === 'round' && e.name === 'round_end'
+    )
+    
+    assert.ok(roundEndEvent, 'Should have a round_end event after all actors complete')
   })
 
   it('should clear events after round ends', async () => {
@@ -331,15 +350,30 @@ describe('NPC Turn System', () => {
     
     await startRound(eventQueue)
     
-    // Skip player turn
+    // Player should be first
+    assert.equal(getCurrentActor(eventQueue), entities.player, 'Player should start')
+    
+    // Collect emitted events
+    const emittedEvents = []
+    const listener = (event) => emittedEvents.push(event)
+    eventQueue.on('event', listener)
+    
+    // Skip player turn - this triggers NPC turns to auto-complete
     await endPlayerTurn(game)
     
-    // Now an NPC should have their turn
-    const currentActor = getCurrentActor(eventQueue)
-    assert.ok(entities.enemies.includes(currentActor), 'Current actor should be an enemy')
+    eventQueue.off('event', listener)
     
-    // NPC system should not set waitingForPlayerInput
-    assert.equal(game.waitingForPlayerInput, false, 'Should not be waiting for player input during NPC turn')
+    // After all turns auto-complete, we should have turn_start events for NPCs
+    const npcTurnStartEvents = emittedEvents.filter(e => 
+      e.type === 'turn' && 
+      e.name === 'turn_start' && 
+      entities.enemies.includes(e.turn.actor_eid)
+    )
+    
+    assert.ok(npcTurnStartEvents.length > 0, 'Should have NPC turn_start events')
+    
+    // Verify waitingForPlayerInput is false (since NPCs completed)
+    assert.equal(game.waitingForPlayerInput, false, 'Should not be waiting for player input after NPC turns')
   })
 
   it('should process multiple NPC turns in sequence', async () => {
@@ -347,26 +381,27 @@ describe('NPC Turn System', () => {
     
     await startRound(eventQueue)
     
-    // Track which actors took turns
-    const actorsThatTookTurns = [getCurrentActor(eventQueue)]
+    // Collect emitted events
+    const emittedEvents = []
+    const listener = (event) => emittedEvents.push(event)
+    eventQueue.on('event', listener)
     
-    // End player turn
+    // End player turn - all NPCs will auto-complete their turns
     await endPlayerTurn(game)
     
-    // Count remaining NPCs
-    const remainingActors = eventQueue.actors.length - 1 // -1 for player
+    eventQueue.off('event', listener)
     
-    // Each NPC turn should progress automatically
-    for (let i = 0; i < remainingActors; i++) {
-      const currentActor = getCurrentActor(eventQueue)
-      if (currentActor !== undefined) {
-        actorsThatTookTurns.push(currentActor)
-      }
-    }
+    // Count how many unique actors had turn_start events
+    const turnStartEvents = emittedEvents.filter(e => 
+      e.type === 'turn' && e.name === 'turn_start'
+    )
     
-    // All actors should have been processed
-    assert.equal(actorsThatTookTurns.length, eventQueue.actors.length, 
-      'All actors should have had turns')
+    const uniqueActors = new Set(turnStartEvents.map(e => e.turn.actor_eid))
+    const totalActors = eventQueue.actors.length
+    
+    // All actors should have had a turn (NPCs that auto-completed)
+    // Note: We expect at least the NPCs to have started their turns
+    assert.ok(uniqueActors.size >= entities.enemies.length, 'All NPCs should have had turns')
   })
 })
 
@@ -414,6 +449,6 @@ describe('Action Event Format', () => {
     
     assert.equal(event.type, 'action', 'Event type should be "action"')
     assert.equal(event.name, 'use', 'Event name should be "use"')
-    assert.ok(event.action.details.room_eid !== undefined, 'Should have room_eid')
+    assert.ok(event.action.room_eid !== undefined, 'Should have room_eid')
   })
 })

@@ -1,5 +1,6 @@
 import {query} from 'bitecs'
 import crypto from 'crypto'
+import {EventEmitter} from 'events'
 import Logger from '../../logger.mjs'
 
 const logger = new Logger('EventQueue', 'cyan')
@@ -24,37 +25,9 @@ export function getRoundStateSnapshot(queue) {
   }
 }
 
-// Helper to broadcast events to WebSocket clients
-function broadcastRoundState(queue) {
-  const {game} = queue
-  if (game.broadcastEvent) {
-    const roundState = getRoundStateSnapshot(queue)
-    logger.info(`Broadcasting round state - ${roundState.events.length} events`)
-    game.broadcastEvent({
-      type: 'round_state',
-      data: roundState
-    })
-  } else {
-    logger.warn(`Cannot broadcast round state - game.broadcastEvent is not set`)
-  }
-}
-
-// Helper to broadcast individual event
-function broadcastEvent(queue, event) {
-  const {game} = queue
-  if (game.broadcastEvent) {
-    logger.info(`Broadcasting event to clients: ${event.type}:${event.name}`)
-    game.broadcastEvent({
-      type: 'event',
-      data: event
-    })
-  } else {
-    logger.warn(`Cannot broadcast event - game.broadcastEvent is not set`)
-  }
-}
-
 export function createEventQueue(game) {
   const systems = game.world.systems || {}
+  const emitter = new EventEmitter()
   
   return {
     events: [],
@@ -62,7 +35,14 @@ export function createEventQueue(game) {
     game,
     currentActorIndex: 0,
     actors: [],
-    systemsResolved: new Map() // Track which systems have resolved this turn
+    systemsResolved: new Map(), // Track which systems have resolved this turn
+    emitter, // Event emitter for subscribing to events
+    
+    // Convenience methods for subscribing
+    on: (eventName, listener) => emitter.on(eventName, listener),
+    once: (eventName, listener) => emitter.once(eventName, listener),
+    off: (eventName, listener) => emitter.off(eventName, listener),
+    emit: (eventName, ...args) => emitter.emit(eventName, ...args)
   }
 }
 
@@ -75,14 +55,14 @@ export async function queueEvent(queue, event) {
   // Log the event being queued
   logger.info(`Queuing event: ${event.type}:${event.name}`, {
     guid: event.guid,
-    actor: event.turn?.actor_eid || event.action?.actorId,
+    actor: event.turn?.actor_eid || event.action?.actor_eid,
     details: event.action?.details || event.system?.details || {}
   })
   
   queue.events.push(event)
   
-  // Broadcast the event as it happens
-  broadcastEvent(queue, event)
+  // Emit the event for subscribers (like WebSocket broadcasting)
+  queue.emit('event', event)
   
   // Get system names for tracking
   const systemNames = Object.keys(queue.systems)
@@ -127,7 +107,9 @@ export async function startRound(queue) {
     name: 'round_start'
   })
   
-  broadcastRoundState(queue)
+  // Emit round state update
+  const roundState = getRoundStateSnapshot(queue)
+  queue.emit('round_state', roundState)
   
   if (queue.actors.length > 0) {
     await startTurn(queue)
@@ -148,7 +130,9 @@ export async function startTurn(queue) {
     }
   })
   
-  broadcastRoundState(queue)
+  // Emit round state update
+  const roundState = getRoundStateSnapshot(queue)
+  queue.emit('round_state', roundState)
 }
 
 export async function endTurn(queue) {
@@ -168,7 +152,9 @@ export async function endTurn(queue) {
     await endRound(queue)
   }
   
-  broadcastRoundState(queue)
+  // Emit round state update
+  const roundState = getRoundStateSnapshot(queue)
+  queue.emit('round_state', roundState)
 }
 
 export async function endRound(queue) {
@@ -178,7 +164,10 @@ export async function endRound(queue) {
   })
   
   queue.events = []
-  broadcastRoundState(queue)
+  
+  // Emit round state update
+  const roundState = getRoundStateSnapshot(queue)
+  queue.emit('round_state', roundState)
 }
 
 export function getCurrentActor(queue) {

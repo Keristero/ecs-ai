@@ -5,21 +5,32 @@ const sound_system = ({game, event}) => {
   if (!event.action.success) return null
   
   const {world} = game
-  const {InRoom, Has} = world.relations
+  const {Has} = world.relations
   const {Ears, Name} = world.components
   
-  const roomEid = event.action.details.room_eid
+  const roomEid = event.action.room_eid
   if (!roomEid) return null
   
   const actorEid = event.action.actor_eid
-  const entitiesInRoom = query(world, [InRoom(roomEid)])
+  
+  // Find all entities in the room (entities that the room Has)
+  const allEntities = []
+  for (let eid = 0; eid < 1000; eid++) {
+    if (hasComponent(world, roomEid, Has(eid))) {
+      allEntities.push(eid)
+    }
+  }
   
   // Find entities with Ears, excluding the speaker
-  const listeners = entitiesInRoom
+  const listenerIds = allEntities
     .filter(eid => eid !== actorEid && hasComponent(world, eid, Ears))
-    .map(eid => Name.getString(eid))
   
-  if (listeners.length === 0) return null
+  if (listenerIds.length === 0) return null
+  
+  // Get listener names
+  const listeners = listenerIds.map(eid => 
+    world.string_store.getString(Name.value[eid])
+  )
   
   return {
     type: 'system',
@@ -28,6 +39,7 @@ const sound_system = ({game, event}) => {
       system_name: 'sound',
       details: {
         sound: event.action.details.dialogue,
+        listener_count: listeners.length,
         listeners,
         room_eid: roomEid
       }

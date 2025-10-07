@@ -12,10 +12,12 @@ const npc_turn_system = async ({game, event}) => {
   if (!hasComponent(world, actorEid, Enemy) || hasComponent(world, actorEid, Player)) return null
   
   // NPC AI logic
-  const {InRoom, Has} = world.relations
-  const enemyRoom = query(world, [world.components.Room]).find(room => {
-    const entitiesInRoom = query(world, [InRoom(room)])
-    return entitiesInRoom.includes(actorEid)
+  const {Has} = world.relations
+  const {Room} = world.components
+  
+  // Find which room has this enemy
+  const enemyRoom = query(world, [Room]).find(room => {
+    return hasComponent(world, room, Has(actorEid))
   })
   
   if (!enemyRoom) {
@@ -24,14 +26,17 @@ const npc_turn_system = async ({game, event}) => {
     return null
   }
   
-  const playersInRoom = query(world, [Player, InRoom(enemyRoom)])
+  // Find all players in the same room
+  const allPlayers = query(world, [Player])
+  const playersInRoom = allPlayers.filter(player => {
+    return hasComponent(world, enemyRoom, Has(player))
+  })
   
   if (playersInRoom.length > 0) {
-    // Find a usable weapon in inventory
-    const inventory = query(world, [Has(actorEid)])
-    const weapon = inventory.find(itemEid => {
-      return Item[itemEid] && Usable[itemEid]
-    })
+    // Find a usable weapon in inventory (items that the enemy Has)
+    const allItems = query(world, [Item])
+    const inventory = allItems.filter(itemId => hasComponent(world, actorEid, Has(itemId)))
+    const weapon = inventory.find(itemEid => hasComponent(world, itemEid, Usable))
     
     if (!weapon) {
       // No weapon, end turn

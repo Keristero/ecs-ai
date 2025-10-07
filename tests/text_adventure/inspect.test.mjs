@@ -6,11 +6,12 @@ describe('Inspect Action', function() {
     
     it('should inspect an entity by name and return component data', function() {
         // Inspect the rusty sword item
-        const result = inspect(game, {entityName: 'RustySword'})
+        const event = inspect(game, {entityName: 'RustySword'})
+        const result = event.action.details
         
-        expect(result.success).to.be.true
-        expect(result.entityName).to.equal('RustySword')
-        expect(result.entityId).to.be.a('number')
+        expect(event.action.success).to.be.true
+        expect(result.entity_name).to.equal('RustySword')
+        expect(result.entity_id).to.be.a('number')
         expect(result.components).to.be.an('object')
         expect(result.message).to.include('RustySword')
         
@@ -30,9 +31,10 @@ describe('Inspect Action', function() {
     })
     
     it('should inspect an enemy and show its components', function() {
-        const result = inspect(game, {entityName: 'Goblin'})
+        const event = inspect(game, {entityName: 'Goblin'})
+        const result = event.action.details
         
-        expect(result.success).to.be.true
+        expect(event.action.success).to.be.true
         expect(result.components).to.have.property('Enemy')
         expect(result.components).to.have.property('Hitpoints')
         expect(result.components).to.have.property('Name')
@@ -40,25 +42,28 @@ describe('Inspect Action', function() {
     })
     
     it('should return failure for non-existent entity', function() {
-        const result = inspect(game, {entityName: 'NonExistentItem'})
+        const event = inspect(game, {entityName: 'NonExistentItem'})
+        const result = event.action.details
         
-        expect(result.success).to.be.false
-        expect(result.message).to.include('No entity found')
+        expect(event.action.success).to.be.false
+        expect(result.error).to.include('No entity found')
     })
     
     it('should be case-insensitive', function() {
-        const result = inspect(game, {entityName: 'rustysword'})
+        const event = inspect(game, {entityName: 'rustysword'})
+        const result = event.action.details
         
-        expect(result.success).to.be.true
-        expect(result.entityName).to.equal('rustysword')
+        expect(event.action.success).to.be.true
+        expect(result.entity_name).to.equal('rustysword')
         expect(result.components.Name.value).to.equal('RustySword')
     })
     
     it('should show relations if entity has them', function() {
         // The rusty sword should have Has relation (room Has sword)
-        const result = inspect(game, {entityName: 'RustySword'})
+        const event = inspect(game, {entityName: 'RustySword'})
+        const result = event.action.details
         
-        expect(result.success).to.be.true
+        expect(event.action.success).to.be.true
         expect(result.relations).to.be.an('object')
         
         // Should have Has relation (showing which room/entity has this sword)
@@ -69,10 +74,11 @@ describe('Inspect Action', function() {
     
     it('should show Has relation for entities with inventory', function() {
         // Inspect skeleton warrior which should have a sword in inventory
-        const result = inspect(game, {entityName: 'SkeletonWarrior'})
+        const event = inspect(game, {entityName: 'SkeletonWarrior'})
+        const result = event.action.details
         
-        expect(result.success).to.be.true
-        expect(result.entityName).to.equal('SkeletonWarrior')
+        expect(event.action.success).to.be.true
+        expect(result.entity_name).to.equal('SkeletonWarrior')
         expect(result.components).to.have.property('Enemy')
         
         // Should have relations
