@@ -16,8 +16,8 @@ game.playerId = entities.player
 // Initialize event queue
 game.eventQueue = createEventQueue(game)
 
-// Start the first round automatically
-await startRound(game.eventQueue)
+// Don't start the round here - let the API server start it after WebSocket is ready
+// This ensures game.broadcastEvent is set before any events are queued
 
 // Add a no-op update function for compatibility with main.mjs
 // This game is event-driven, so it doesn't use frame-based updates

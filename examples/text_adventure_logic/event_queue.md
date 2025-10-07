@@ -70,4 +70,31 @@ let event = {
 ```
 ## Game client
 
-For now we can ignore the game client, first we should implement all the logic here, as well as tests for it. afterwards we can move onto upgrading the API to provide websockets, so that we can upgrade the game client to talk over websockets, this will allow the client to process events as they happen.
+The game client is a fairly dumb client mostly concerned with input and output.
+There is rich autocomplete system that reads from the list of entities in the room.
+The contents of the room is automatically discovered from look actions which are automatically issued in the game logic when we enter a new room, or manually issued from the client.
+
+The client should expect to receive two kinds of events, round state:
+```js
+let event = {
+    type:'roundState',
+    data:{
+        playerId: 3,//player id of this client
+        currentActorEid: 3,//whoose turn it is this round (if it matches its our turn)
+        events: queue.events,//list of all events that have happened this round
+        systemsResolved: systemsResolved //list of game systems, and if they have finished processing the events or not
+    }
+}
+
+let event = {
+    type:'event',
+    data:{
+        //these are the events returned by actions and systems
+    }
+}
+```
+When the client joins it will get a roundstate immediately to catch it up to whats happening. (we iterate over all the events to catch up)
+
+When a regular event appears we will print it in the log, and use any information we can learn from the event to update the current room information (we track this to help with autocomplete)
+
+The client can send one event: action, this has action, params, and guid, guid should be specified so that we can relate events received later back to this action (if we want, it might not be needed but nice to have.)

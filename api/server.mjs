@@ -8,7 +8,7 @@ import { tool_defs } from '../game_framework/ecs_interface.mjs';
 import { action_defs, load_actions } from '../game_framework/actions_interface.mjs';
 import { setupDocs } from './docs.mjs';
 import { ollama_defs, zPromptPayload } from './ollama_defs.mjs';
-import { getRoundStateSnapshot, queueEvent } from '../examples/text_adventure_logic/event_queue.mjs';
+import { getRoundStateSnapshot, queueEvent, startRound } from '../examples/text_adventure_logic/event_queue.mjs';
 import env from '../environment.mjs';
 
 const logger = new Logger('API Server', 'blue');
@@ -163,11 +163,26 @@ async function serve_api(game) {
     game.wsClients = clients;
     game.broadcastEvent = (event) => {
         const message = JSON.stringify(event);
+        logger.info(`Broadcasting to ${clients.size} client(s): ${event.type}`);
+        
+        let successCount = 0;
+        let failCount = 0;
+        
         clients.forEach(client => {
             if (client.readyState === 1) { // WebSocket.OPEN
-                client.send(message);
+                try {
+                    client.send(message);
+                    successCount++;
+                } catch (error) {
+                    logger.error(`Failed to send to client:`, error.message);
+                    failCount++;
+                }
+            } else {
+                failCount++;
             }
         });
+        
+        logger.info(`Broadcast result: ${successCount} sent, ${failCount} failed`);
     };
 
     wss.on('connection', (ws) => {
@@ -186,14 +201,16 @@ async function serve_api(game) {
         ws.on('message', async (data) => {
             try {
                 const message = JSON.parse(data.toString());
-                logger.info('Received message:', message.type);
+                logger.info('Received WebSocket message:', message.type, message.action || message.tool || '');
 
                 switch (message.type) {
                     case 'action': {
                         const { action, params, guid } = message;
+                        logger.info(`Processing action: ${action}`, params);
                         const actionDef = action_defs[action];
                         
                         if (!actionDef) {
+                            logger.error(`Unknown action: ${action}`);
                             ws.send(JSON.stringify({
                                 type: 'error',
                                 message: `Unknown action: ${action}`,
@@ -204,15 +221,20 @@ async function serve_api(game) {
 
                         // Run the action to get the event
                         const actionParams = params || {};
+                        logger.info(`Running action ${action} with params:`, actionParams);
                         const event = await actionDef.run({ game, ...actionParams });
+                        logger.info(`Action ${action} returned event:`, event.type, event.name);
                         
                         // If client provided a GUID, use it for the event
                         if (guid) {
                             event.guid = guid;
+                            logger.info(`Using client-provided GUID: ${guid}`);
                         }
                         
                         // Queue the event (this will broadcast it and run systems)
+                        logger.info(`Queueing event for action ${action}`);
                         await queueEvent(game.eventQueue, event);
+                        logger.info(`Event queued successfully for action ${action}`);
                         
                         // Send simple acknowledgment back to client
                         ws.send(JSON.stringify({
@@ -221,6 +243,7 @@ async function serve_api(game) {
                             guid,
                             messageId: message.messageId
                         }));
+                        logger.info(`Sent action_accepted for ${action}`);
                         break;
                     }
 
@@ -272,6 +295,13 @@ async function serve_api(game) {
     });
 
     logger.info(`WebSocket server ready on ws://${env.api_host}:${env.api_port}`);
+
+    // Start the first round now that WebSocket broadcasting is ready
+    if (game.eventQueue && !game.eventQueue.actors.length) {
+        logger.info('Starting first round...');
+        await startRound(game.eventQueue);
+        logger.info('First round started');
+    }
 
     return { app, server, wss };
 }

@@ -1,5 +1,8 @@
 import {query} from 'bitecs'
 import crypto from 'crypto'
+import Logger from '../../logger.mjs'
+
+const logger = new Logger('EventQueue', 'cyan')
 
 // Helper to get round state snapshot
 export function getRoundStateSnapshot(queue) {
@@ -26,10 +29,13 @@ function broadcastRoundState(queue) {
   const {game} = queue
   if (game.broadcastEvent) {
     const roundState = getRoundStateSnapshot(queue)
+    logger.info(`Broadcasting round state - ${roundState.events.length} events`)
     game.broadcastEvent({
       type: 'round_state',
       data: roundState
     })
+  } else {
+    logger.warn(`Cannot broadcast round state - game.broadcastEvent is not set`)
   }
 }
 
@@ -37,10 +43,13 @@ function broadcastRoundState(queue) {
 function broadcastEvent(queue, event) {
   const {game} = queue
   if (game.broadcastEvent) {
+    logger.info(`Broadcasting event to clients: ${event.type}:${event.name}`)
     game.broadcastEvent({
       type: 'event',
       data: event
     })
+  } else {
+    logger.warn(`Cannot broadcast event - game.broadcastEvent is not set`)
   }
 }
 
@@ -62,6 +71,14 @@ export async function queueEvent(queue, event) {
   if (!event.guid) {
     event.guid = crypto.randomUUID()
   }
+  
+  // Log the event being queued
+  logger.info(`Queuing event: ${event.type}:${event.name}`, {
+    guid: event.guid,
+    actor: event.turn?.actor_eid || event.action?.actorId,
+    details: event.action?.details || event.system?.details || {}
+  })
+  
   queue.events.push(event)
   
   // Broadcast the event as it happens

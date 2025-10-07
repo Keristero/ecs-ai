@@ -1,22 +1,12 @@
-/**
- * Browser interface for the text adventure game
- * Handles all DOM manipulation and browser-specific functionality
- */
-
-// Import core game logic from inline script tag
-// GameState, initializeGame, executeAction, parseCommand, etc. will be available globally
-
-// Global state
+let terminal;
+let commandInput;
+let autocompleteDiv;
 let gameState = null;
 let autocompleteIndex = -1;
 
-// DOM elements
-const terminal = document.getElementById('terminal');
-const commandInput = document.getElementById('command-input');
-const autocompleteDiv = document.getElementById('autocomplete');
-
-// Print a line to the terminal
 function printLine(text, className = '') {
+    if (!terminal) return;
+    
     const line = document.createElement('div');
     line.className = `output-line ${className}`;
     line.textContent = text;
@@ -24,144 +14,78 @@ function printLine(text, className = '') {
     terminal.scrollTop = terminal.scrollHeight;
 }
 
-// Print multiple lines
-function printLines(lines, className = '') {
-    lines.forEach(line => printLine(line, className));
-}
-
-// Clear the terminal
-function clearTerminal() {
-    terminal.innerHTML = '';
-}
-
-// Display room information
 function displayRoomInfo(roomData) {
     const lines = formatRoomInfo(roomData);
     lines.forEach(line => {
-        // Apply different styles based on line content
         let className = '';
         if (line.startsWith('===') || line.startsWith('Exits:') || 
-            line.startsWith('Items:') || line.startsWith('Landmarks:') || 
-            line.startsWith('Enemies:') || line.startsWith('Inventory:')) {
+            line.includes('Items:') || line.includes('Landmarks:') || 
+            line.includes('Enemies:') || line.includes('Inventory:')) {
             className = 'info';
         }
         printLine(line, className);
     });
 }
 
-// Update autocomplete dropdown
-function updateAutocomplete(input) {
-    const currentRoomData = gameState.getCurrentRoomData();
-    const suggestions = getAutocompleteSuggestions(input, currentRoomData);
-    
-    if (suggestions.length > 0) {
-        autocompleteDiv.innerHTML = suggestions
-            .map((suggestion, idx) => {
-                // Handle both string and object suggestions
-                const displayText = typeof suggestion === 'string' ? suggestion : suggestion.display;
-                const valueText = typeof suggestion === 'string' ? suggestion : suggestion.text;
-                return `<div class="autocomplete-item ${idx === 0 ? 'selected' : ''}" data-value="${valueText}" data-index="${idx}">${displayText}</div>`;
-            })
-            .join('');
-        autocompleteDiv.style.display = 'block';
-        autocompleteIndex = 0; // Select first item by default
-    } else {
-        autocompleteDiv.innerHTML = '';
-        autocompleteDiv.style.display = 'none';
-        autocompleteIndex = -1;
-    }
+function displayRoundState(roundState) {
+    const lines = formatRoundState(roundState);
+    lines.forEach(line => {
+        let className = '';
+        if (line.startsWith('===')) className = 'info';
+        else if (line.includes('YOUR TURN')) className = 'success';
+        else if (line.includes('NPC TURN')) className = 'dim';
+        printLine(line, className);
+    });
 }
 
-// Select autocomplete item
-function selectAutocomplete(direction) {
-    const items = autocompleteDiv.querySelectorAll('.autocomplete-item');
-    if (items.length === 0) return;
+function displayEvent(event) {
+    const currentRoomId = gameState.getCurrentRoomId();
+    const isGlobalEvent = event.type === 'round' || event.type === 'turn';
+    const isInCurrentRoom = event.action?.room_eid === currentRoomId || event.action?.room_eid === undefined;
+    const systemRoomId = event.system?.details?.room_eid;
+    const isSystemInCurrentRoom = systemRoomId === currentRoomId || systemRoomId === undefined;
     
-    // Remove previous selection
-    items.forEach(item => item.classList.remove('selected'));
+    if (!isGlobalEvent && !isInCurrentRoom && !isSystemInCurrentRoom) return;
     
-    // Update index
-    if (direction === 'down') {
-        autocompleteIndex = (autocompleteIndex + 1) % items.length;
-    } else if (direction === 'up') {
-        autocompleteIndex = autocompleteIndex <= 0 ? items.length - 1 : autocompleteIndex - 1;
+    if (event.type === 'action' && event.name === 'look' && event.action?.success) {
+        displayRoomInfo(event.action.details);
+        return;
     }
     
-    // Add selection
-    items[autocompleteIndex].classList.add('selected');
+    let eventDesc = `[${event.type}] ${event.name}`;
+    
+    if (event.action) {
+        eventDesc += event.action.success ? ' ✓' : ' ✗';
+        const message = event.action.details?.message || event.action.details?.error;
+        if (message) eventDesc += `: ${message}`;
+    }
+    
+    printLine(eventDesc, event.action?.success ? 'success' : 'dim');
 }
 
-// Apply autocomplete selection
-function applyAutocomplete() {
-    const items = autocompleteDiv.querySelectorAll('.autocomplete-item');
-    if (items.length === 0) return;
-    
-    // Get selected item or first item if none selected
-    let selected = autocompleteDiv.querySelector('.autocomplete-item.selected');
-    if (!selected && items.length > 0) {
-        selected = items[0];
-    }
-    
-    if (selected) {
-        const completionText = selected.getAttribute('data-value') || selected.textContent;
-        
-        // Replace only the current word being typed
-        const currentValue = commandInput.value;
-        const parts = currentValue.split(/\s+/);
-        
-        // Replace the last part (current word) with the completion
-        parts[parts.length - 1] = completionText;
-        
-        // Reconstruct the command
-        commandInput.value = parts.join(' ');
-        
-        autocompleteDiv.innerHTML = '';
-        autocompleteDiv.style.display = 'none';
-        autocompleteIndex = -1;
-    }
-}
-
-// Execute command and display result
 async function executeCommand(input) {
     const trimmed = input.trim();
     if (!trimmed) return;
     
-    // Show command in terminal
     printLine(`> ${trimmed}`, 'prompt');
-    
-    // Add to history
     gameState.addToHistory(trimmed);
     
-    // Parse command
     const parsed = parseCommand(input, gameState);
-    
     if (!parsed) return;
     
-    // Handle different command types
     switch (parsed.type) {
         case 'help':
-            const helpLines = getHelpText();
-            printLines(helpLines, 'info');
+            getHelpText().forEach(line => printLine(line, 'info'));
             break;
             
         case 'clear':
-            clearTerminal();
+            terminal.innerHTML = '';
             break;
             
         case 'action':
             const result = await executeAction(gameState, parsed.action, parsed.params);
-            
-            if (result.success === false) {
+            if (!result.success) {
                 printLine(result.message, 'error');
-            } else {
-                if (result.message) {
-                    printLine(result.message, 'success');
-                }
-                
-                // Display room info if available
-                if (result.roomId) {
-                    displayRoomInfo(result);
-                }
             }
             break;
             
@@ -171,94 +95,158 @@ async function executeCommand(input) {
     }
 }
 
-// Initialize the game
-async function init() {
-    gameState = new GameState();
+function updateAutocomplete(input) {
+    const currentRoomData = gameState.getCurrentRoomData();
+    const suggestions = getAutocompleteSuggestions(input, currentRoomData);
     
-    printLine('=== Text Adventure Game ===', 'info');
-    printLine('Loading game...', 'info');
-    
-    const initResult = await initializeGame(gameState);
-    
-    if (initResult.success) {
-        printLine(`Player ID: ${initResult.playerId}`, 'info');
-        printLine(`Loaded ${initResult.actionsCount} actions`, 'success');
-        
-        // Display initial room
-        if (initResult.initialRoom) {
-            displayRoomInfo(initResult.initialRoom);
-        }
-        
-        printLine('Type "help" for available commands', 'info');
+    if (suggestions.length > 0) {
+        autocompleteDiv.innerHTML = suggestions
+            .map((suggestion, idx) => {
+                const text = typeof suggestion === 'string' ? suggestion : suggestion.text;
+                const display = typeof suggestion === 'string' ? suggestion : (suggestion.display || text);
+                return `<div class="autocomplete-item ${idx === 0 ? 'selected' : ''}" data-value="${text}">${display}</div>`;
+            })
+            .join('');
+        autocompleteDiv.style.display = 'block';
+        autocompleteIndex = 0;
     } else {
-        printLine(`Failed to initialize: ${initResult.error}`, 'error');
-    }
-}
-
-// Event listeners
-commandInput.addEventListener('input', (e) => {
-    updateAutocomplete(e.target.value);
-});
-
-commandInput.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        const command = commandInput.value;
-        commandInput.value = '';
-        autocompleteDiv.innerHTML = '';
-        autocompleteDiv.style.display = 'none';
-        await executeCommand(command);
-    } else if (e.key === 'Tab') {
-        e.preventDefault();
-        applyAutocomplete();
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (autocompleteDiv.children.length > 0) {
-            selectAutocomplete('up');
-        } else {
-            const prev = gameState.getPreviousCommand();
-            if (prev !== null) {
-                commandInput.value = prev;
-                updateAutocomplete(prev); // Update autocomplete for history command
-            }
-        }
-    } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (autocompleteDiv.children.length > 0) {
-            selectAutocomplete('down');
-        } else {
-            const next = gameState.getNextCommand();
-            commandInput.value = next;
-            updateAutocomplete(next); // Update autocomplete for history command
-        }
-    } else if (e.key === 'Escape') {
-        // Clear autocomplete on Escape
         autocompleteDiv.innerHTML = '';
         autocompleteDiv.style.display = 'none';
         autocompleteIndex = -1;
     }
-});
+}
 
-// Click to select autocomplete
-autocompleteDiv.addEventListener('click', (e) => {
-    if (e.target.classList.contains('autocomplete-item')) {
-        const completionText = e.target.getAttribute('data-value') || e.target.textContent;
-        
-        // Replace only the current word being typed
-        const currentValue = commandInput.value;
-        const parts = currentValue.split(/\s+/);
-        
-        // Replace the last part (current word) with the completion
-        parts[parts.length - 1] = completionText;
-        
-        // Reconstruct the command
-        commandInput.value = parts.join(' ');
-        
-        autocompleteDiv.innerHTML = '';
-        autocompleteDiv.style.display = 'none';
-        commandInput.focus();
+function selectAutocomplete(direction) {
+    const items = autocompleteDiv.querySelectorAll('.autocomplete-item');
+    if (items.length === 0) return;
+    
+    items.forEach(item => item.classList.remove('selected'));
+    
+    if (direction === 'down') {
+        autocompleteIndex = (autocompleteIndex + 1) % items.length;
+    } else if (direction === 'up') {
+        autocompleteIndex = autocompleteIndex <= 0 ? items.length - 1 : autocompleteIndex - 1;
     }
-});
+    
+    items[autocompleteIndex].classList.add('selected');
+}
 
-// Start the game
-init();
+function applyAutocomplete() {
+    const selected = autocompleteDiv.querySelector('.autocomplete-item.selected');
+    if (!selected) return;
+    
+    const text = selected.getAttribute('data-value') || selected.textContent;
+    const currentValue = commandInput.value;
+    const parts = currentValue.split(/\s+/);
+    parts[parts.length - 1] = text;
+    commandInput.value = parts.join(' ');
+    
+    autocompleteDiv.innerHTML = '';
+    autocompleteDiv.style.display = 'none';
+    autocompleteIndex = -1;
+}
+
+async function init() {
+    terminal = document.getElementById('terminal');
+    commandInput = document.getElementById('command-input');
+    autocompleteDiv = document.getElementById('autocomplete');
+    
+    if (!terminal || !commandInput || !autocompleteDiv) {
+        console.error('Required DOM elements not found');
+        alert('Failed to initialize: Required DOM elements not found');
+        return;
+    }
+    
+    printLine('=== Text Adventure Game ===', 'info');
+    printLine('Loading game...', 'info');
+    
+    try {
+        gameState = new GameState();
+        addEventListener('round_state', displayRoundState);
+        addEventListener('event', displayEvent);
+        
+        const initResult = await initializeGame(gameState);
+        
+        if (initResult.success) {
+            printLine(`Player ID: ${initResult.playerId}`, 'info');
+            printLine(`Loaded ${initResult.actionsCount} actions`, 'success');
+            printLine('Type "help" for available commands', 'info');
+            setupEventListeners();
+        } else {
+            printLine(`Failed to initialize: ${initResult.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Initialization error:', error);
+        printLine(`Failed to initialize: ${error.message}`, 'error');
+    }
+}
+
+function setupEventListeners() {
+    commandInput.addEventListener('input', (e) => updateAutocomplete(e.target.value));
+
+    commandInput.addEventListener('keydown', async (e) => {
+        const autocompleteVisible = autocompleteDiv.children.length > 0;
+        
+        switch (e.key) {
+            case 'Enter':
+                e.preventDefault();
+                const command = commandInput.value;
+                commandInput.value = '';
+                autocompleteDiv.innerHTML = '';
+                autocompleteDiv.style.display = 'none';
+                await executeCommand(command);
+                break;
+                
+            case 'Tab':
+                e.preventDefault();
+                applyAutocomplete();
+                break;
+                
+            case 'ArrowUp':
+                e.preventDefault();
+                if (autocompleteVisible) {
+                    selectAutocomplete('up');
+                } else {
+                    const prev = gameState.getPreviousCommand();
+                    if (prev) {
+                        commandInput.value = prev;
+                        updateAutocomplete(prev);
+                    }
+                }
+                break;
+                
+            case 'ArrowDown':
+                e.preventDefault();
+                if (autocompleteVisible) {
+                    selectAutocomplete('down');
+                } else {
+                    const next = gameState.getNextCommand();
+                    commandInput.value = next;
+                    updateAutocomplete(next);
+                }
+                break;
+                
+            case 'Escape':
+                autocompleteDiv.innerHTML = '';
+                autocompleteDiv.style.display = 'none';
+                autocompleteIndex = -1;
+                break;
+        }
+    });
+
+    autocompleteDiv.addEventListener('click', (e) => {
+        if (e.target.classList.contains('autocomplete-item')) {
+            const text = e.target.getAttribute('data-value') || e.target.textContent;
+            const currentValue = commandInput.value;
+            const parts = currentValue.split(/\s+/);
+            parts[parts.length - 1] = text;
+            commandInput.value = parts.join(' ');
+            
+            autocompleteDiv.innerHTML = '';
+            autocompleteDiv.style.display = 'none';
+            commandInput.focus();
+        }
+    });
+}
+
+init()
