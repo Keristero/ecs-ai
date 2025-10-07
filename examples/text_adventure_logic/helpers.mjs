@@ -1,4 +1,4 @@
-import {query, hasComponent, getComponent} from 'bitecs'
+import {query, hasComponent, getComponent, addComponent, removeComponent} from 'bitecs'
 
 /**
  * Game helpers - Common ECS query utilities for text adventure
@@ -36,15 +36,16 @@ export function getEntitiesInRoom(world, roomId) {
 }
 
 /**
- * Get all entities in player's inventory
+ * Get all items in an entity's inventory
  * @param {Object} world - The ECS world
- * @param {number} playerId - Player entity ID
+ * @param {number} entityId - Entity ID (player or any entity with inventory)
  * @returns {Array<number>} Array of entity IDs in inventory
  */
-export function getInventoryItems(world, playerId) {
-    const {InInventory} = world.relations
+export function getInventoryItems(world, entityId) {
+    const {Has} = world.relations
     const {Item} = world.components
-    return query(world, [Item, InInventory(playerId)])
+    // Query for items that the entity Has
+    return query(world, [Item, Has(entityId)])
 }
 
 /**

@@ -22,7 +22,7 @@ export default function drop(game, params) {
     const actorId = params.actorId ?? game.playerId
     const {itemId} = params
     const {world} = game
-    const {InRoom, InInventory} = world.relations
+    const {InRoom, Has} = world.relations
     const {Item, Hands} = world.components
     
     // Validate actor has functional Hands
@@ -49,8 +49,8 @@ export default function drop(game, params) {
         return failureResult("You are not in any room!")
     }
     
-    // Remove from inventory and add to room
-    removeComponent(world, itemId, InInventory(actorId))
+    // Remove from inventory using Has relation and add to room
+    removeComponent(world, actorId, Has(itemId))
     addComponent(world, itemId, InRoom(actorRoom))
     
     // Build message with warning if Hands impaired

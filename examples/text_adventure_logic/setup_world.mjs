@@ -52,10 +52,19 @@ function setup_world(game) {
     const enemy2 = addEntity(world)
     addComponent(world, enemy2, IsA(prefabs.skeleton_warrior))
     addComponent(world, enemy2, InRoom(room3))
+    // Give this skeleton warrior a rusty sword
+    const sword1 = addEntity(world)
+    addComponent(world, sword1, IsA(prefabs.rusty_sword))
+    const {Has} = world.relations
+    addComponent(world, enemy2, Has(sword1))
     
     const enemy3 = addEntity(world)
     addComponent(world, enemy3, IsA(prefabs.skeleton_warrior))
     addComponent(world, enemy3, InRoom(room3))
+    // Give this skeleton warrior a rusty sword
+    const sword2 = addEntity(world)
+    addComponent(world, sword2, IsA(prefabs.rusty_sword))
+    addComponent(world, enemy3, Has(sword2))
     
     // Create player using prefab
     const player = addEntity(world)

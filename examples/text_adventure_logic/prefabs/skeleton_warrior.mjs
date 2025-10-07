@@ -6,7 +6,6 @@ import {addPrefab, addComponent, addEntity, set, IsA} from 'bitecs'
  */
 export default function create_skeleton_warrior_prefab(world, prefabs) {
     const {Enemy, Hitpoints, Name, Description, Ears, Eyes, Hands, Attributes} = world.components
-    const {InInventory} = world.relations
     
     const SkeletonWarrior = addPrefab(world)
     addComponent(world, SkeletonWarrior, Enemy)
@@ -24,10 +23,8 @@ export default function create_skeleton_warrior_prefab(world, prefabs) {
     addComponent(world, SkeletonWarrior, set(Name, {value: "SkeletonWarrior"}))
     addComponent(world, SkeletonWarrior, set(Description, {value: "An animated skeleton"}))
     
-    // Give the skeleton warrior a rusty sword in its inventory
-    const sword = addEntity(world)
-    addComponent(world, sword, IsA(prefabs.rusty_sword))
-    addComponent(world, sword, InInventory(SkeletonWarrior))
+    // Note: Inventory items (like weapons) should be added when instantiating
+    // skeleton warriors in setup_world, not in the prefab template
     
     return SkeletonWarrior
 }

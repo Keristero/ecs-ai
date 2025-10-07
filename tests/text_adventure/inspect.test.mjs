@@ -66,4 +66,31 @@ describe('Inspect Action', function() {
             expect(result.relations).to.have.property('InRoom')
         }
     })
+    
+    it('should show Has relation for entities with inventory', function() {
+        // Inspect skeleton warrior which should have a sword in inventory
+        const result = inspect(game, {entityName: 'SkeletonWarrior'})
+        
+        expect(result.success).to.be.true
+        expect(result.entityName).to.equal('SkeletonWarrior')
+        expect(result.components).to.have.property('Enemy')
+        
+        // Should have relations
+        expect(result.relations).to.be.an('object')
+        
+        // Should have Has relation showing the sword in inventory
+        if (result.relations.Has) {
+            expect(result.relations.Has).to.be.an('array')
+            expect(result.relations.Has.length).to.be.greaterThan(0)
+            
+            // The first item should be a RustySword
+            const firstItem = result.relations.Has[0]
+            expect(firstItem).to.have.property('targetId')
+            expect(firstItem).to.have.property('targetName')
+            expect(firstItem.targetName).to.equal('RustySword')
+        } else {
+            // If no Has relation, fail with a descriptive message
+            expect.fail('SkeletonWarrior should have a Has relation with a RustySword in inventory')
+        }
+    })
 })
