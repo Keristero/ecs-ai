@@ -49,6 +49,10 @@ let Usable = CreateComponent(z.object({
     modifyAmount: z.number() // amount to modify by (positive or negative)
 }))
 
+let Actor = CreateComponent(z.object({
+    initiative: z.number().int().nonnegative()
+}))
+
 export {
     Hitpoints,
     Name,
@@ -62,5 +66,6 @@ export {
     Eyes,
     Hands,
     Player,
-    Usable
+    Usable,
+    Actor
 }

@@ -8,6 +8,7 @@ import {
     validateComponentForAction,
     failureResult
 } from '../helpers.mjs'
+import {createActionEvent} from '../action_helpers.mjs'
 
 /**
  * Use action - use an item on a target entity
@@ -27,20 +28,32 @@ export default function use(game, params) {
     const {InRoom} = world.relations
     const {Usable, Name, Hands} = world.components
     
+    const roomEid = findEntityRoom(world, actorId)
+    
     // Validate actor has functional Hands
     const handsValidation = validateComponentForAction(world, actorId, Hands, 'Hands', 'use items')
     if (!handsValidation.valid) {
-        return failureResult(handsValidation.error)
+        return createActionEvent('use', actorId, false, {
+            error: handsValidation.error,
+            room_eid: roomEid
+        })
     }
     
     // Check if actor has the item
     if (!hasItemInInventory(world, actorId, itemId)) {
-        return failureResult("You don't have that item!")
+        return createActionEvent('use', actorId, false, {
+            error: "You don't have that item!",
+            room_eid: roomEid
+        })
     }
     
     // Check if item has Usable component
     if (!hasComponent(world, itemId, Usable)) {
-        return failureResult("That item cannot be used.")
+        return createActionEvent('use', actorId, false, {
+            error: "That item cannot be used.",
+            room_eid: roomEid,
+            item_eid: itemId
+        })
     }
     
     // Get usable data - getComponent triggers onGet observer automatically
@@ -52,7 +65,11 @@ export default function use(game, params) {
     
     // Validate usable data
     if (!targetComponentName || !modifyComponentName || !modifyField || modifyAmount === undefined) {
-        return failureResult("This item is not properly configured.")
+        return createActionEvent('use', actorId, false, {
+            error: "This item is not properly configured.",
+            room_eid: roomEid,
+            item_eid: itemId
+        })
     }
     
     // Get component references
@@ -60,7 +77,11 @@ export default function use(game, params) {
     const modifyComponent = world.components[modifyComponentName]
     
     if (!targetComponent || !modifyComponent) {
-        return failureResult("This item references unknown components.")
+        return createActionEvent('use', actorId, false, {
+            error: "This item references unknown components.",
+            room_eid: roomEid,
+            item_eid: itemId
+        })
     }
     
     // Default to self if no target specified
@@ -70,17 +91,32 @@ export default function use(game, params) {
     
     // Validate target has required component
     if (!hasComponent(world, targetId, targetComponent)) {
-        return failureResult("That is not a valid target for this item!")
+        return createActionEvent('use', actorId, false, {
+            error: "That is not a valid target for this item!",
+            room_eid: roomEid,
+            item_eid: itemId,
+            target_eid: targetId
+        })
     }
     
     // Validate target has component to modify
     if (!hasComponent(world, targetId, modifyComponent)) {
-        return failureResult("That target cannot be affected by this item!")
+        return createActionEvent('use', actorId, false, {
+            error: "That target cannot be affected by this item!",
+            room_eid: roomEid,
+            item_eid: itemId,
+            target_eid: targetId
+        })
     }
     
     // Check if target is in same room as actor (if not self)
     if (targetId !== actorId && !areInSameRoom(world, actorId, targetId)) {
-        return failureResult("That target is not here!")
+        return createActionEvent('use', actorId, false, {
+            error: "That target is not here!",
+            room_eid: roomEid,
+            item_eid: itemId,
+            target_eid: targetId
+        })
     }
     
     // Apply the modification
@@ -113,20 +149,20 @@ export default function use(game, params) {
         message += ` (${handsValidation.warning})`
     }
     
-    return {
-        success: true,
+    return createActionEvent('use', actorId, true, {
+        room_eid: roomEid,
         message,
-        itemId,
-        itemName,
-        targetId,
-        targetName,
-        modifiedComponent: modifyComponentName,
-        modifiedField: modifyField,
-        oldValue,
-        newValue,
+        item_eid: itemId,
+        item_name: itemName,
+        target_eid: targetId,
+        target_name: targetName,
+        modified_component: modifyComponentName,
+        modified_field: modifyField,
+        old_value: oldValue,
+        new_value: newValue,
         amount: modifyAmount,
         ...extraInfo
-    }
+    })
 }
 
 // Action metadata for dynamic command generation and autocomplete

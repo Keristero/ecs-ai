@@ -71,6 +71,9 @@ async function initialize_game(){
         relations: {}
     })
     
+    // Store systems on world for easy access
+    game.world.systems = systems
+    
     // Setup string store for components that need string storage
     // This provides a generic way to store strings referenced by index
     const stringStore = []
