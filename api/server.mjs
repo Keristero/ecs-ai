@@ -2,11 +2,13 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { WebSocketServer } from 'ws';
 import Logger from '../logger.mjs';
 import { tool_defs } from '../game_framework/ecs_interface.mjs';
 import { action_defs, load_actions } from '../game_framework/actions_interface.mjs';
 import { setupDocs } from './docs.mjs';
 import { ollama_defs, zPromptPayload } from './ollama_defs.mjs';
+import { getRoundStateSnapshot, queueEvent } from '../examples/text_adventure_logic/event_queue.mjs';
 import env from '../environment.mjs';
 
 const logger = new Logger('API Server', 'blue');
@@ -153,7 +155,125 @@ async function serve_api(game) {
             });
     });
 
-    return { app, server };
+    // Setup WebSocket server
+    const wss = new WebSocketServer({ server });
+    const clients = new Set();
+
+    // Store reference in game for emitting events
+    game.wsClients = clients;
+    game.broadcastEvent = (event) => {
+        const message = JSON.stringify(event);
+        clients.forEach(client => {
+            if (client.readyState === 1) { // WebSocket.OPEN
+                client.send(message);
+            }
+        });
+    };
+
+    wss.on('connection', (ws) => {
+        logger.info('Client connected via WebSocket');
+        clients.add(ws);
+
+        // Send current round state immediately (includes playerId)
+        if (game.eventQueue) {
+            const roundState = getRoundStateSnapshot(game.eventQueue);
+            ws.send(JSON.stringify({
+                type: 'round_state',
+                data: roundState
+            }));
+        }
+
+        ws.on('message', async (data) => {
+            try {
+                const message = JSON.parse(data.toString());
+                logger.info('Received message:', message.type);
+
+                switch (message.type) {
+                    case 'action': {
+                        const { action, params, guid } = message;
+                        const actionDef = action_defs[action];
+                        
+                        if (!actionDef) {
+                            ws.send(JSON.stringify({
+                                type: 'error',
+                                message: `Unknown action: ${action}`,
+                                messageId: message.messageId
+                            }));
+                            return;
+                        }
+
+                        // Run the action to get the event
+                        const actionParams = params || {};
+                        const event = await actionDef.run({ game, ...actionParams });
+                        
+                        // If client provided a GUID, use it for the event
+                        if (guid) {
+                            event.guid = guid;
+                        }
+                        
+                        // Queue the event (this will broadcast it and run systems)
+                        await queueEvent(game.eventQueue, event);
+                        
+                        // Send simple acknowledgment back to client
+                        ws.send(JSON.stringify({
+                            type: 'action_accepted',
+                            action,
+                            guid,
+                            messageId: message.messageId
+                        }));
+                        break;
+                    }
+
+                    case 'tool': {
+                        const { tool, params } = message;
+                        const toolDef = tool_defs[tool];
+                        
+                        if (!toolDef) {
+                            ws.send(JSON.stringify({
+                                type: 'error',
+                                message: `Unknown tool: ${tool}`
+                            }));
+                            return;
+                        }
+
+                        const result = await toolDef.run({ game, ...(params || {}) });
+                        ws.send(JSON.stringify({
+                            type: 'tool_result',
+                            tool,
+                            result
+                        }));
+                        break;
+                    }
+
+                    default:
+                        ws.send(JSON.stringify({
+                            type: 'error',
+                            message: `Unknown message type: ${message.type}`
+                        }));
+                }
+            } catch (error) {
+                logger.error('WebSocket message error:', error.message);
+                ws.send(JSON.stringify({
+                    type: 'error',
+                    message: error.message
+                }));
+            }
+        });
+
+        ws.on('close', () => {
+            logger.info('Client disconnected from WebSocket');
+            clients.delete(ws);
+        });
+
+        ws.on('error', (error) => {
+            logger.error('WebSocket error:', error.message);
+            clients.delete(ws);
+        });
+    });
+
+    logger.info(`WebSocket server ready on ws://${env.api_host}:${env.api_port}`);
+
+    return { app, server, wss };
 }
 
 export { serve_api };

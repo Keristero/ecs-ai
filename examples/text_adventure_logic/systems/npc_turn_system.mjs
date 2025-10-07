@@ -1,4 +1,4 @@
-import {query} from 'bitecs'
+import {query, hasComponent} from 'bitecs'
 import use from '../actions/use.mjs'
 import {endTurn} from '../event_queue.mjs'
 
@@ -9,7 +9,7 @@ const npc_turn_system = async ({game, event}) => {
   const {Enemy, Player, Usable, Item} = world.components
   const actorEid = event.turn.actor_eid
   
-  if (!Enemy[actorEid] || Player[actorEid]) return null
+  if (!hasComponent(world, actorEid, Enemy) || hasComponent(world, actorEid, Player)) return null
   
   // NPC AI logic
   const {InRoom, Has} = world.relations

@@ -81,6 +81,35 @@ function displayRoomInfo(roomData) {
     });
 }
 
+// Display round state (NEW)
+function displayRoundState(roundState) {
+    const lines = core.formatRoundState(roundState);
+    lines.forEach(line => {
+        // Apply different styles based on line content
+        let style = '';
+        if (line.startsWith('===')) {
+            style = 'info';
+        } else if (line.includes('YOUR TURN')) {
+            style = 'success';
+        } else if (line.includes('NPC TURN')) {
+            style = 'dim';
+        } else if (line.includes('▶')) {
+            style = 'success';
+        }
+        printLine(line, style);
+    });
+}
+
+// Display individual event as it happens
+function displayEvent(event) {
+    let eventDesc = `[Event] ${event.type}:${event.name}`;
+    if (event.turn && event.turn.actor_eid !== undefined) {
+        eventDesc += ` (Actor: ${event.turn.actor_eid})`;
+    }
+    printLine(eventDesc, 'dim');
+    rl.prompt();
+}
+
 // Execute command
 async function executeCommand(input) {
     const trimmed = input.trim();
@@ -118,6 +147,8 @@ async function executeCommand(input) {
                     printLine(result.message, 'success');
                 }
                 
+                // Round state updates now come automatically via WebSocket
+                
                 // Display room info if available
                 if (result.roomId) {
                     displayRoomInfo(result);
@@ -141,11 +172,25 @@ async function init() {
     printLine('Loading game...', 'info');
     
     try {
+        // Set up WebSocket event listeners
+        core.addEventListener('round_state', (roundState) => {
+            displayRoundState(roundState);
+        });
+        
+        core.addEventListener('event', (event) => {
+            displayEvent(event);
+        });
+        
         const initResult = await core.initializeGame(gameState);
         
         if (initResult.success) {
             printLine(`Player ID: ${initResult.playerId}`, 'info');
             printLine(`Loaded ${initResult.actionsCount} actions`, 'success');
+            
+            // Display initial round state (will also update from WebSocket)
+            if (initResult.roundState) {
+                displayRoundState(initResult.roundState);
+            }
             
             // Display initial room
             if (initResult.initialRoom) {

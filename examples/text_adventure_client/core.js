@@ -5,6 +5,28 @@
 
 // Configuration
 const API_BASE_URL = 'http://localhost:6060';
+const WS_URL = 'ws://localhost:6060';
+
+// WebSocket connection
+let ws = null;
+let wsMessageHandlers = new Map();
+let wsMessageId = 0;
+
+// Store reference to the active game state instance
+let activeGameState = null;
+
+// GUID generation (browser and Node.js compatible)
+function generateGUID() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    // Fallback for older environments
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
 
 // Built-in commands that aren't actions
 const BUILTIN_COMMANDS = {
@@ -23,15 +45,21 @@ const BUILTIN_COMMANDS = {
 // Dynamic commands loaded from API (will be populated during initialization)
 let DYNAMIC_ACTIONS = {};
 
+// Event listeners for WebSocket events
+const wsEventListeners = {
+    round_state: [],  // Round state updates
+    event: []         // Individual events as they happen
+};
+
 // Game state
 class GameState {
     constructor() {
         this.playerId = null;
-        this.currentRoomData = null;
+        this.roundState = null; // Store round/turn state - all game state derives from this
         this.availableActions = [];
         this.commandHistory = [];
         this.historyIndex = -1;
-        this.entityNameToIdMap = {}; // Maps entity names to their IDs
+        this.pendingActions = new Map(); // Track actions by GUID: {guid: {action, params, timestamp}}
     }
 
     addToHistory(command) {
@@ -57,11 +85,28 @@ class GameState {
         }
     }
     
-    // Update entity name to ID mapping from room data
-    updateEntityMap(roomData) {
-        this.entityNameToIdMap = {};
+    // Update round state
+    updateRoundState(roundState) {
+        this.roundState = roundState;
+    }
+    
+    // Get entity name to ID map from latest look event in round state
+    getEntityNameToIdMap() {
+        if (!this.roundState || !this.roundState.events) return {};
         
-        if (!roomData) return;
+        const entityMap = {};
+        
+        // Find the most recent look event
+        const lookEvents = this.roundState.events
+            .filter(e => e.type === 'action' && e.name === 'look')
+            .reverse(); // Most recent first
+        
+        if (lookEvents.length === 0) return {};
+        
+        const lookEvent = lookEvents[0];
+        const roomData = lookEvent.action?.details;
+        
+        if (!roomData) return {};
         
         // Process all entity types
         const entityTypes = ['items', 'enemies', 'landmarks', 'inventory'];
@@ -72,10 +117,63 @@ class GameState {
                 if (entity.name && entity.id !== undefined) {
                     // Store in lowercase for case-insensitive matching
                     const normalizedName = entity.name.toLowerCase();
-                    this.entityNameToIdMap[normalizedName] = entity.id;
+                    entityMap[normalizedName] = entity.id;
                 }
             });
         }
+        
+        return entityMap;
+    }
+    
+    // Get current room data from latest look event in round state
+    getCurrentRoomData() {
+        if (!this.roundState || !this.roundState.events) return null;
+        
+        // Find the most recent look event
+        const lookEvents = this.roundState.events
+            .filter(e => e.type === 'action' && e.name === 'look')
+            .reverse(); // Most recent first
+        
+        if (lookEvents.length === 0) return null;
+        
+        const lookEvent = lookEvents[0];
+        return lookEvent.action?.details || null;
+    }
+    
+    // Get current room ID from the most recent look event
+    getCurrentRoomId() {
+        const roomData = this.getCurrentRoomData();
+        return roomData?.roomId || null;
+    }
+    
+    // Filter events to only those in current room
+    getEventsInCurrentRoom() {
+        if (!this.roundState || !this.roundState.events) return [];
+        
+        const currentRoomId = this.getCurrentRoomId();
+        if (currentRoomId === null) return this.roundState.events;
+        
+        return this.roundState.events.filter(event => {
+            // Always include round and turn events (they're global)
+            if (event.type === 'round' || event.type === 'turn') {
+                return true;
+            }
+            
+            // For action events, check if they happened in current room
+            if (event.type === 'action') {
+                const eventRoomId = event.action?.room_eid;
+                return eventRoomId === currentRoomId || eventRoomId === undefined;
+            }
+            
+            // For system events, check room_eid if present
+            if (event.type === 'system') {
+                const eventRoomId = event.system?.details?.room_eid;
+                return eventRoomId === currentRoomId || eventRoomId === undefined;
+            }
+            
+            // Include other event types by default
+            return true;
+        });
     }
     
     // Convert entity name to ID (returns the input if it's already an ID or not found)
@@ -92,13 +190,168 @@ class GameState {
             return this.playerId;
         }
         
-        // Try to find by name (case-insensitive)
-        if (this.entityNameToIdMap[normalizedName] !== undefined) {
-            return this.entityNameToIdMap[normalizedName];
+        // Try to find by name (case-insensitive) from current entity map
+        const entityMap = this.getEntityNameToIdMap();
+        if (entityMap[normalizedName] !== undefined) {
+            return entityMap[normalizedName];
         }
         
         // Return original if not found
         return nameOrId;
+    }
+}
+
+// WebSocket connection management
+function connectWebSocket() {
+    return new Promise((resolve, reject) => {
+        try {
+            // Use native WebSocket in browser, ws in Node.js
+            const WebSocketClass = typeof window !== 'undefined' && typeof WebSocket !== 'undefined' 
+                ? WebSocket 
+                : require('ws');
+            ws = new WebSocketClass(WS_URL);
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                resolve(ws);
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    console.log('WebSocket received:', message.type);
+                    handleWebSocketMessage(message);
+                } catch (error) {
+                    console.error('Failed to parse WebSocket message:', error);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                triggerEventListeners('error', error);
+                reject(error);
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                ws = null;
+            };
+            
+            setTimeout(() => reject(new Error('WebSocket connection timeout')), 5000);
+        } catch (error) {
+            console.error('WebSocket connection error:', error);
+            reject(error);
+        }
+    });
+}
+
+// Handle incoming WebSocket messages
+function handleWebSocketMessage(message) {
+    console.log('handleWebSocketMessage called with:', message);
+    const { type, data } = message;
+    
+    // Check if this is a response to a specific request (action results)
+    if (message.messageId && wsMessageHandlers.has(message.messageId)) {
+        console.log('Message is a response to request', message.messageId);
+        const handler = wsMessageHandlers.get(message.messageId);
+        wsMessageHandlers.delete(message.messageId);
+        handler(message);
+        return;
+    }
+    
+    // Handle broadcast messages
+    console.log('Processing broadcast message of type:', type);
+    switch (type) {
+        case 'round_state':
+            // Full round state update
+            console.log('Triggering round_state listeners with data:', data);
+            triggerEventListeners('round_state', data);
+            break;
+        case 'event':
+            // Individual event that just happened
+            console.log('Triggering event listeners with data:', data);
+            
+            // Check if this event matches a pending action
+            if (activeGameState && data.guid && activeGameState.pendingActions.has(data.guid)) {
+                const pendingAction = activeGameState.pendingActions.get(data.guid);
+                console.log('✓ Event matches pending action:', pendingAction.action, 'GUID:', data.guid);
+                
+                // Mark the action as confirmed by removing it from pending
+                activeGameState.pendingActions.delete(data.guid);
+                console.log('Confirmed action, remaining pending:', activeGameState.pendingActions.size);
+            }
+            
+            triggerEventListeners('event', data);
+            break;
+        default:
+            console.warn('Unknown message type:', type);
+    }
+}
+
+// Send a message via WebSocket and wait for response
+function sendWebSocketMessage(message) {
+    return new Promise((resolve, reject) => {
+        if (!ws || ws.readyState !== 1) { // 1 = WebSocket.OPEN
+            reject(new Error('WebSocket not connected'));
+            return;
+        }
+        
+        const messageId = ++wsMessageId;
+        message.messageId = messageId;
+        
+        // Store handler for response
+        wsMessageHandlers.set(messageId, resolve);
+        
+        // Send message
+        ws.send(JSON.stringify(message));
+        
+        // Timeout after 30 seconds
+        setTimeout(() => {
+            if (wsMessageHandlers.has(messageId)) {
+                wsMessageHandlers.delete(messageId);
+                reject(new Error('Request timeout'));
+            }
+        }, 30000);
+    });
+}
+
+// Register event listener for WebSocket events
+function addEventListener(eventType, handler) {
+    console.log('addEventListener called for:', eventType);
+    if (wsEventListeners[eventType]) {
+        wsEventListeners[eventType].push(handler);
+        console.log(`Added listener. Total listeners for ${eventType}:`, wsEventListeners[eventType].length);
+    } else {
+        console.error('Invalid event type:', eventType);
+    }
+}
+
+// Remove event listener
+function removeEventListener(eventType, handler) {
+    if (wsEventListeners[eventType]) {
+        const index = wsEventListeners[eventType].indexOf(handler);
+        if (index > -1) {
+            wsEventListeners[eventType].splice(index, 1);
+        }
+    }
+}
+
+// Trigger event listeners
+function triggerEventListeners(eventType, data) {
+    console.log(`triggerEventListeners called for type: ${eventType}, listeners count:`, wsEventListeners[eventType]?.length || 0);
+    if (wsEventListeners[eventType]) {
+        console.log('Calling', wsEventListeners[eventType].length, 'listeners');
+        wsEventListeners[eventType].forEach((handler, index) => {
+            console.log(`Calling listener ${index} for ${eventType}`);
+            try {
+                handler(data);
+                console.log(`Listener ${index} completed successfully`);
+            } catch (error) {
+                console.error(`Listener ${index} threw error:`, error);
+            }
+        });
+    } else {
+        console.warn('No listeners registered for event type:', eventType);
     }
 }
 
@@ -352,38 +605,70 @@ async function fetchJSON(url, options = {}) {
 // Initialize game
 async function initializeGame(state) {
     try {
-        // Load actions metadata first
-        await loadActionsMetadata();
+        console.log('Initializing game...');
         
-        // Get player ID from server
-        const gameInfo = await fetchJSON(`${API_BASE_URL}/actions/gameinfo`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
+        // Store reference to active game state
+        activeGameState = state;
+        
+        // Register listener for round state updates (includes playerId)
+        console.log('Registering round_state listener');
+        addEventListener('round_state', (roundState) => {
+            console.log('Round state listener triggered with:', roundState);
+            state.playerId = roundState.playerId;
+            console.log('Set playerId to:', state.playerId);
+            state.updateRoundState(roundState);
+            console.log('Updated game state round state');
         });
         
-        if (gameInfo.result && gameInfo.result.playerId) {
-            state.playerId = gameInfo.result.playerId;
-        } else {
-            state.playerId = 1; // Default fallback
-        }
+        // Register listener for individual events
+        console.log('Registering event listener');
+        addEventListener('event', (event) => {
+            console.log('Event listener triggered:', event.type, event.name);
+            // Events will be handled by client UI
+        });
+        
+        // Connect WebSocket (will receive initial round_state with playerId)
+        console.log('Connecting to WebSocket...');
+        await connectWebSocket();
+        console.log('WebSocket connected successfully');
+        
+        // Wait a moment for initial round_state message
+        console.log('Waiting for initial round_state...');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('Wait complete, playerId should be set');
+        
+        // Load actions metadata from HTTP endpoint (one-time load)
+        console.log('Loading actions metadata...');
+        await loadActionsMetadata();
+        console.log('Actions loaded');
+        
+        console.log('Player ID:', state.playerId);
         
         // Store available actions count
         state.availableActions = Object.keys(DYNAMIC_ACTIONS).filter(key => {
             // Count unique actions (not aliases)
             return DYNAMIC_ACTIONS[key].name === key;
         });
+        console.log('Available actions:', state.availableActions.length);
         
         // Look around to get initial room info
-        const lookResult = await executeAction(state, 'look', {});
+        console.log('Executing look action...');
+        await executeAction(state, 'look', {});
+        console.log('Look action sent');
         
-        return {
+        // Wait for round state to update with look event
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        const result = {
             success: true,
             playerId: state.playerId,
             actionsCount: state.availableActions.length,
-            initialRoom: lookResult
+            roundState: state.roundState
         };
+        console.log('initializeGame returning:', result);
+        return result;
     } catch (error) {
+        console.error('Initialization error:', error);
         return {
             success: false,
             error: error.message
@@ -391,59 +676,76 @@ async function initializeGame(state) {
     }
 }
 
-// Execute an action via API
+// Execute an action via WebSocket
 async function executeAction(state, actionName, params) {
     try {
+        console.log('executeAction called:', actionName, 'with params:', params);
+        
+        // Generate GUID for this action
+        const actionGuid = generateGUID();
+        console.log('Generated action GUID:', actionGuid);
+        
         // Convert entity names to IDs in params
         const convertedParams = {};
         for (const [key, value] of Object.entries(params)) {
             // Only convert to entity ID if the parameter name ends with "Id"
-            // Otherwise keep as string (e.g., "direction", "entityName")
-            if (key.endsWith('Id')) {
+            if (key.endsWith('Id') && typeof value === 'string') {
                 convertedParams[key] = state.getEntityId(value);
             } else {
                 convertedParams[key] = value;
             }
         }
+        console.log('Converted params:', convertedParams);
         
-        const data = await fetchJSON(`${API_BASE_URL}/actions/${actionName}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerId: state.playerId, ...convertedParams })
-        });
-        
-        if (data.result) {
-            const result = data.result;
-            
-            // Update room data if this was a look action or movement
-            if (actionName === 'look' || (result.roomId && actionName === 'move')) {
-                state.currentRoomData = result;
-                state.updateEntityMap(result);
-            }
-            
-            // Check if we should summarize with AI
-            const actionDef = DYNAMIC_ACTIONS[actionName];
-            if (actionDef && actionDef.summarizeWithAI && result.success) {
-                try {
-                    const aiSummary = await summarizeWithAI(actionName, convertedParams, result);
-                    if (aiSummary) {
-                        // Replace the message with the AI summary
-                        result.message = aiSummary;
-                    }
-                } catch (error) {
-                    console.error('AI summarization failed:', error);
-                    // Continue with original message
-                }
-            }
-            
-            return result;
+        // Add actorId if not provided
+        if (!convertedParams.actorId) {
+            convertedParams.actorId = state.playerId;
+            console.log('Added actorId:', convertedParams.actorId);
         }
         
-        return { success: false, message: 'No result returned' };
+        // Track this pending action
+        state.pendingActions.set(actionGuid, {
+            action: actionName,
+            params: convertedParams,
+            timestamp: Date.now()
+        });
+        console.log('Tracked pending action, total pending:', state.pendingActions.size);
+        
+        // Send action via WebSocket with GUID
+        console.log('Sending WebSocket message with GUID:', {type: 'action', action: actionName, params: convertedParams, guid: actionGuid});
+        const response = await sendWebSocketMessage({
+            type: 'action',
+            action: actionName,
+            params: convertedParams,
+            guid: actionGuid  // Include GUID so server can use it for the event
+        });
+        console.log('Received WebSocket response:', response);
+        
+        if (response.type === 'action_accepted') {
+            console.log('Action accepted by server');
+            // All game state comes from events broadcast by the server
+            return {
+                success: true,
+                guid: actionGuid,
+                message: 'Action sent successfully'
+            };
+        } else if (response.type === 'error') {
+            console.error('Received error response:', response.message);
+            // Remove from pending on error
+            state.pendingActions.delete(actionGuid);
+            return {
+                success: false,
+                message: response.message
+            };
+        }
+        
+        console.log('Unknown response type, returning as-is');
+        return response;
     } catch (error) {
-        return { 
-            success: false, 
-            message: `Action failed: ${error.message}` 
+        console.error('Action execution error:', error);
+        return {
+            success: false,
+            message: error.message
         };
     }
 }
@@ -509,7 +811,7 @@ function parseCommand(input, state = null) {
     // Handle action commands
     if (cmdDef.type === 'action') {
         // Pass entity map to help with parsing multi-word entity names
-        const entityMap = state?.entityNameToIdMap || {};
+        const entityMap = state?.getEntityNameToIdMap() || {};
         const parsed = parseActionArgs(cmdDef.name, cmdDef.parameters, args, entityMap);
         
         if (parsed.error) {
@@ -714,6 +1016,52 @@ function formatRoomInfo(roomData) {
     return lines;
 }
 
+// Format round state into lines of text
+function formatRoundState(roundState) {
+    if (!roundState) return [];
+    
+    const lines = [];
+    
+    lines.push(''); // Empty line before round state
+    lines.push('=== Round State ===');
+    
+    // Current turn info
+    const isPlayerTurn = roundState.currentActorEid === roundState.playerId;
+    const turnIndicator = isPlayerTurn ? '👤 YOUR TURN' : `🤖 NPC TURN (Entity ${roundState.currentActorEid})`;
+    lines.push(turnIndicator);
+    
+    lines.push('');
+    
+    // Systems resolution status
+    if (roundState.systemsResolved && Object.keys(roundState.systemsResolved).length > 0) {
+        lines.push('Systems Status:');
+        for (const [systemName, resolved] of Object.entries(roundState.systemsResolved)) {
+            const status = resolved ? '✅' : '⏳';
+            const statusText = resolved ? 'resolved' : 'pending';
+            lines.push(`  ${status} ${systemName}: ${statusText}`);
+        }
+        lines.push('');
+    }
+    
+    // Events list
+    if (roundState.events && roundState.events.length > 0) {
+        lines.push(`Events this round (${roundState.events.length}):`);
+        roundState.events.forEach(event => {
+            let eventDesc = `  • ${event.type}:${event.name}`;
+            if (event.turn && event.turn.actor_eid !== undefined) {
+                eventDesc += ` (Actor: ${event.turn.actor_eid})`;
+            }
+            lines.push(eventDesc);
+        });
+        lines.push('');
+    } else {
+        lines.push('No events yet this round');
+        lines.push('');
+    }
+    
+    return lines;
+}
+
 // Export for both CommonJS (Node.js) and ES modules (browser)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -729,11 +1077,14 @@ if (typeof module !== 'undefined' && module.exports) {
         getAutocompleteSuggestions,
         getHelpText,
         formatRoomInfo,
+        formatRoundState,
         getAllCommands,
         getEntitiesByType,
         getEntitiesByComponent,
         formatEntity,
-        formatEntityCollection
+        formatEntityCollection,
+        addEventListener,
+        removeEventListener
     };
 }
 
@@ -751,9 +1102,12 @@ if (typeof window !== 'undefined') {
     window.getAutocompleteSuggestions = getAutocompleteSuggestions;
     window.getHelpText = getHelpText;
     window.formatRoomInfo = formatRoomInfo;
+    window.formatRoundState = formatRoundState;
     window.getAllCommands = getAllCommands;
     window.getEntitiesByType = getEntitiesByType;
     window.getEntitiesByComponent = getEntitiesByComponent;
     window.formatEntity = formatEntity;
     window.formatEntityCollection = formatEntityCollection;
+    window.addEventListener = addEventListener;
+    window.removeEventListener = removeEventListener;
 }

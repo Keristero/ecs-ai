@@ -51,7 +51,8 @@ function displayRoomInfo(roomData) {
 
 // Update autocomplete dropdown
 function updateAutocomplete(input) {
-    const suggestions = getAutocompleteSuggestions(input, gameState.currentRoomData);
+    const currentRoomData = gameState.getCurrentRoomData();
+    const suggestions = getAutocompleteSuggestions(input, currentRoomData);
     
     if (suggestions.length > 0) {
         autocompleteDiv.innerHTML = suggestions

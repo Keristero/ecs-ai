@@ -1,5 +1,5 @@
 import {queueEvent} from './event_queue.mjs'
-import {endPlayerTurn} from './systems/player_turn_system.mjs'
+import {endPlayerTurn} from './helpers/player_turn_helper.mjs'
 
 /**
  * Invoke a player action and queue the resulting event
