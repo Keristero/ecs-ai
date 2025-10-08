@@ -1,63 +1,80 @@
 import { hasComponent } from 'bitecs'
-import { waitForActorAction, endTurn, queueEvent } from '../event_queue.mjs'
-import { action_defs } from '../../../game_framework/actions_interface.mjs'
 
-// Player turn system now intentionally minimal:
-// - For real gameplay: does nothing (the original turn_start event is already broadcast)
-// - For test mode: immediately emits a synthetic turn_end to advance automation
+// Player Turn System responsibilities:
+// - On turn_start for a Player actor: wait for externally submitted action, timeout, or disconnect.
+// - Emits system events for timeout/disconnect and always emits turn_end when resolved.
+// - Does NOT execute the action itself (another system can translate action events to results).
+
+function ctx(game) {
+  if (!game.playerTurnCtx) game.playerTurnCtx = { waiters: new Map() }
+  return game.playerTurnCtx
+}
+
+function waitFor(game, actorEid, { timeoutMs = 60000 } = {}) {
+  const c = ctx(game)
+  if (c.waiters.has(actorEid)) return c.waiters.get(actorEid).promise
+  let resolved = false
+  let timer
+  const promise = new Promise(resolve => {
+    timer = setTimeout(() => {
+      if (resolved) return
+      resolved = true
+      c.waiters.delete(actorEid)
+      resolve({ kind: 'timeout' })
+    }, timeoutMs)
+    c.waiters.set(actorEid, {
+      resolve: (payload) => {
+        if (resolved) return
+        resolved = true
+        clearTimeout(timer)
+        c.waiters.delete(actorEid)
+        resolve({ kind: 'action', payload })
+      },
+      disconnect: () => {
+        if (resolved) return
+        resolved = true
+        clearTimeout(timer)
+        c.waiters.delete(actorEid)
+        resolve({ kind: 'disconnect' })
+      },
+      promise
+    })
+  })
+  return promise
+}
+
+function submitPlayerAction(game, actorEid, actionObj) {
+  const w = ctx(game).waiters.get(actorEid)
+  if (w) w.resolve(actionObj)
+}
+
+function notifyPlayerDisconnect(game, actorEid) {
+  const w = ctx(game).waiters.get(actorEid)
+  if (w) w.disconnect()
+}
+
 const player_turn_system = async ({ game, event }) => {
-  if (event.type !== 'turn' || event.name !== 'turn_start') return null
+  if (event.type !== 'round' || event.name !== 'round_info') return null
   const { world } = game
   const { Player } = world.components
-  const actorEid = event.turn.actor_eid
-  if (!hasComponent(world, actorEid, Player)) return null
+  const actorEid = event.round.actor_eid
+  if (!Player || !hasComponent(world, actorEid, Player)) return null
 
-  if (game.testMode) {
-    return { type: 'turn', name: 'turn_end', turn: { actor_eid: actorEid, reason: 'test_mode_auto_advance' } }
-  }
-
-  // Wait for player action, disconnect, or timeout
   ;(async () => {
-    const result = await waitForActorAction(game.eventQueue, actorEid, { timeoutMs: 60000 })
-    if (result.type === 'action') {
-      const actionObj = result.payload
-      const actionName = actionObj.type
-      const def = action_defs[actionName]
-      if (def) {
-        try {
-          const event = await def.run({ game, actorId: actorEid, ...actionObj })
-          if (event) await queueEvent(game.eventQueue, event)
-        } catch (e) {
-          await queueEvent(game.eventQueue, {
-            type: 'system',
-            name: 'action_error',
-            system: { system_name: 'player_turn', details: { message: e.message } }
-          })
-        }
-      } else {
-        await queueEvent(game.eventQueue, {
-          type: 'system',
-          name: 'unknown_action',
-          system: { system_name: 'player_turn', details: { action: actionName } }
-        })
-      }
-    } else if (result.type === 'disconnect') {
-      await queueEvent(game.eventQueue, {
-        type: 'system',
-        name: 'actor_disconnected',
-        system: { system_name: 'player_turn', details: { actor_eid: actorEid } }
-      })
-    } else if (result.type === 'timeout') {
-      await queueEvent(game.eventQueue, {
-        type: 'system',
-        name: 'turn_timeout',
-        system: { system_name: 'player_turn', details: { actor_eid: actorEid } }
-      })
+    const result = await waitFor(game, actorEid, { timeoutMs: 60000 })
+    // Map result categories to optional system events by returning arrays
+    const events = []
+    if (result.kind === 'disconnect') {
+      events.push({ type: 'system', name: 'actor_disconnected', system: { system_name: 'player_turn', details: { actor_eid: actorEid } } })
+    } else if (result.kind === 'timeout') {
+      events.push({ type: 'system', name: 'turn_timeout', system: { system_name: 'player_turn', details: { actor_eid: actorEid } } })
     }
-    await endTurn(game.eventQueue)
+    events.push({ type: 'system', name: 'turn_complete', turn: { actor_eid: actorEid } })
+    // Return array of events to enqueue
+    return events
   })()
 
   return null
 }
 
-export { player_turn_system }
+export { player_turn_system, submitPlayerAction, notifyPlayerDisconnect }

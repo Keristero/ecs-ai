@@ -2,8 +2,7 @@ import { WebSocketServer } from 'ws';
 import Logger from '../../logger.mjs';
 import { action_defs, load_actions } from '../../game_framework/actions_interface.mjs';
 import { queueEvent } from './event_queue.mjs';
-// Turn system is responsible for round/turn lifecycle & player action waits
-import createTurnSystem from './systems/turn_system.mjs';
+import { submitPlayerAction, notifyPlayerDisconnect } from './systems/player_turn_system.mjs';
 import env from '../../environment.mjs';
 
 const logger = new Logger('Text Adventure WebSocket', 'magenta');
@@ -23,11 +22,6 @@ export function setupWebSocketServer(game) {
     game.wsClients = clients;
     game.wss = wss;
     game.clientPlayerMap = clientPlayerMap;
-
-    // Ensure a singleton turn system attached to game
-    if (!game.turnSystem) {
-        game.turnSystem = createTurnSystem(game)
-    }
 
     wss.on('connection', async (ws) => {
         logger.info('Text adventure client connected');
@@ -83,8 +77,8 @@ export function setupWebSocketServer(game) {
                             ws.send(JSON.stringify({ type: 'error', message: `Unknown action: ${actionName}` }));
                             break;
                         }
-                        // Submit action to turn system
-                        game.turnSystem.submitPlayerAction(playerId, actionObj)
+                        // Player action becomes its own event; player_turn_system will produce turn_complete later
+                        submitPlayerAction(game, playerId, actionObj)
                         ws.send(JSON.stringify({ type: 'action_received', action: actionName }))
                         break;
                     }
@@ -164,7 +158,7 @@ export function setupWebSocketServer(game) {
                 };
                 
                 await queueEvent(game.eventQueue, disconnectEvent);
-                game.turnSystem.notifyDisconnect(clientData.playerId)
+                notifyPlayerDisconnect(game, clientData.playerId)
             }
             
             clientPlayerMap.delete(ws);
@@ -239,8 +233,12 @@ export function setupEventBroadcasting(game) {
     });
     
     // Subscribe to round state updates
-    // Round state broadcasting removed for now; new turn system can expose
-    // lightweight hooks if needed (e.g., emitting current actor updates).
+    // Broadcast round_info events to clients for UI state
+    game.eventQueue.on('event', (event) => {
+        if (event.type === 'round' && event.name === 'round_info') {
+            broadcastToClients(game, { type: 'round_info', data: event.round })
+        }
+    })
 }
 
 function broadcastToClients(game, message) {

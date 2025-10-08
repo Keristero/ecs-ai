@@ -2,11 +2,11 @@ import {query, hasComponent} from 'bitecs'
 import use from '../actions/use.mjs'
 
 const npc_turn_system = async ({game, event}) => {
-  if (event.type !== 'turn' || event.name !== 'turn_start') return null
+  if (event.type !== 'round' || event.name !== 'round_info') return null
   
   const {world} = game
   const {Enemy, Player, Usable, Item} = world.components
-  const actorEid = event.turn.actor_eid
+  const actorEid = event.round.actor_eid
   
   if (!hasComponent(world, actorEid, Enemy) || hasComponent(world, actorEid, Player)) return null
   
@@ -21,8 +21,7 @@ const npc_turn_system = async ({game, event}) => {
   
   if (!enemyRoom) {
     // No valid room, end turn
-  if (game.turnSystem) await game.turnSystem.submitPlayerAction(actorEid, { type: '__auto_end__' })
-    return null
+    return { type: 'turn', name: 'turn_complete', turn: { actor_eid: actorEid } }
   }
   
   // Find all players in the same room
@@ -39,8 +38,7 @@ const npc_turn_system = async ({game, event}) => {
     
     if (!weapon) {
       // No weapon, end turn
-  if (game.turnSystem) await game.turnSystem.submitPlayerAction(actorEid, { type: '__auto_end__' })
-      return null
+      return { type: 'turn', name: 'turn_complete', turn: { actor_eid: actorEid } }
     }
     
     const target = playersInRoom[Math.floor(Math.random() * playersInRoom.length)]
@@ -52,15 +50,12 @@ const npc_turn_system = async ({game, event}) => {
       targetId: target
     })
     
-    // After action completes, end turn
-  if (game.turnSystem) await game.turnSystem.submitPlayerAction(actorEid, { type: '__auto_end__' })
-    
-    return actionEvent
+    // Return action event followed by turn completion
+    return actionEvent ? [actionEvent, { type: 'turn', name: 'turn_complete', turn: { actor_eid: actorEid } }] : { type: 'turn', name: 'turn_complete', turn: { actor_eid: actorEid } }
   }
   
   // No targets, end turn
-  if (game.turnSystem) await game.turnSystem.submitPlayerAction(actorEid, { type: '__auto_end__' })
-  return null
+  return { type: 'turn', name: 'turn_complete', turn: { actor_eid: actorEid } }
 }
 
 export {npc_turn_system}
