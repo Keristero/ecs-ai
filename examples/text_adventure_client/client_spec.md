@@ -31,7 +31,11 @@ All whitelisted events are automatically written to the console, in the per even
 the client should be blocked from submitting actions until only the player_turn_system has not resolved (its the players turn)
 
 
-### server side logic
+### backend logic (game logic)
+- on web socket connect we should spawn a player in the starting room for the new client
+- on web socket disconnect we should delete the player
+- the websocket_implementation should handle mapping the clients to their respective players without the other systems needing to be involved in that aspect
+
 - introduce a entity update event that will be emitted whenever any component data from an entity changes, we use this to maintain up to date entity information automatically, we can simply refresh the content of most UI elements (not the log)
 - there will eventually be an event with all the action definitions so the client does not have to directly access them
 

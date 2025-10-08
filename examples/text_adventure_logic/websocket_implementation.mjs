@@ -1,16 +1,11 @@
 import { WebSocketServer } from 'ws';
 import Logger from '../../logger.mjs';
 import { action_defs, load_actions } from '../../game_framework/actions_interface.mjs';
-import { getRoundStateSnapshot, queueEvent, startRound } from './event_queue.mjs';
+import { getRoundStateSnapshot, queueEvent } from './event_queue.mjs';
 import env from '../../environment.mjs';
 
 const logger = new Logger('Text Adventure WebSocket', 'magenta');
 
-/**
- * Set up WebSocket server for the text adventure game
- * @param {Object} game - Game object with httpServer attached
- * @returns {Object} WebSocket server and clients set
- */
 export function setupWebSocketServer(game) {
     if (!game.httpServer) {
         logger.error('No HTTP server found on game object. Cannot set up WebSocket server.');
@@ -19,34 +14,66 @@ export function setupWebSocketServer(game) {
 
     logger.info('Setting up text adventure WebSocket server');
     
-    // Create WebSocket server using the attached HTTP server
     const wss = new WebSocketServer({ server: game.httpServer });
     const clients = new Set();
+    const clientPlayerMap = new Map();
 
-    // Store reference to clients in game
     game.wsClients = clients;
     game.wss = wss;
+    game.clientPlayerMap = clientPlayerMap;
 
-    wss.on('connection', (ws) => {
+    wss.on('connection', async (ws) => {
         logger.info('Text adventure client connected');
         clients.add(ws);
         
-        // Send current round state immediately (includes playerId)
-        if (game.eventQueue && getRoundStateSnapshot) {
-            const roundState = getRoundStateSnapshot(game.eventQueue);
-            ws.send(JSON.stringify({
-                type: 'round_state',
-                data: roundState
-            }));
-            logger.info('Sent initial round state to client');
-        }
+        // Emit a player_connect event - a system will handle spawning the player
+        const connectEvent = {
+            type: 'system',
+            name: 'player_connect',
+            system: {
+                system_name: 'websocket',
+                details: {
+                    ws_id: Math.random().toString(36).substr(2, 9) // Temporary ID until player is spawned
+                }
+            }
+        };
+        
+        // Store WebSocket with a temporary ID until we get the player ID from the spawn system
+        const tempId = connectEvent.system.details.ws_id;
+        clientPlayerMap.set(ws, { tempId, playerId: null, ws: ws });
+        
+        // Send action schemas
+        ws.send(JSON.stringify({
+            type: 'action_schemas',
+            action_schemas: {
+                schemas: getActionSchemas()
+            }
+        }));
+        
+        // Queue the connect event - this will trigger player_spawn_system
+        await queueEvent(game.eventQueue, connectEvent);
+        
+        // Note: Don't send round state here - it will be sent after player_spawned event
 
         ws.on('message', async (data) => {
             try {
                 const message = JSON.parse(data.toString());
-                logger.info('Received WebSocket message:', message.type, message.action || message.tool || '');
+                const clientData = clientPlayerMap.get(ws);
+                const playerId = clientData?.playerId;
+                
+                logger.info('Received WebSocket message:', message.type);
 
                 switch (message.type) {
+                    case 'player_action': {
+                        // Store the player's action for the player_turn_system to pick up
+                        if (!game.pendingPlayerActions) {
+                            game.pendingPlayerActions = new Map();
+                        }
+                        game.pendingPlayerActions.set(playerId, message.action);
+                        logger.info(`Stored pending action for player ${playerId}:`, message.action);
+                        break;
+                    }
+                    
                     case 'action': {
                         const { action, params, guid } = message;
                         logger.info(`Processing action: ${action}`, params);
@@ -62,38 +89,37 @@ export function setupWebSocketServer(game) {
                             return;
                         }
 
-                        // Run the action to get the event
                         const actionParams = params || {};
-                        logger.info(`Running action ${action} with params:`, actionParams);
-                        const event = await actionDef.run({ game, ...actionParams });
-                        logger.info(`Action ${action} returned event:`, event.type, event.name);
-                        
-                        // If client provided a GUID, use it for the event
-                        if (guid) {
-                            event.guid = guid;
-                            logger.info(`Using client-provided GUID: ${guid}`);
+                        if (playerId) {
+                            actionParams.actor_eid = playerId;
                         }
                         
-                        // Queue the event (this will broadcast it and run systems)
-                        logger.info(`Queueing event for action ${action}`);
-                        await queueEvent(game.eventQueue, event);
-                        logger.info(`Event queued successfully for action ${action}`);
+                        logger.info(`Running action ${action} with params:`, actionParams);
+                        const event = await actionDef.run({ game, ...actionParams });
                         
-                        // Send simple acknowledgment back to client
+                        if (event) {
+                            logger.info(`Action ${action} returned event:`, event?.type, event?.name);
+                            
+                            if (guid) {
+                                event.guid = guid;
+                            }
+                            
+                            await queueEvent(game.eventQueue, event);
+                        }
+                        
                         ws.send(JSON.stringify({
                             type: 'action_accepted',
                             action,
                             guid,
                             messageId: message.messageId
                         }));
-                        logger.info(`Sent action_accepted for ${action}`);
                         break;
                     }
 
                     default:
                         ws.send(JSON.stringify({
                             type: 'error',
-                            message: `Unknown message type: ${message.type}. Text adventure supports: action`
+                            message: `Unknown message type: ${message.type}`
                         }));
                 }
             } catch (error) {
@@ -105,8 +131,27 @@ export function setupWebSocketServer(game) {
             }
         });
 
-        ws.on('close', () => {
+        ws.on('close', async () => {
             logger.info('Text adventure client disconnected');
+            const clientData = clientPlayerMap.get(ws);
+            
+            if (clientData?.playerId) {
+                // Emit a player_disconnect event - a system will handle despawning
+                const disconnectEvent = {
+                    type: 'system',
+                    name: 'player_disconnect',
+                    system: {
+                        system_name: 'websocket',
+                        details: {
+                            player_eid: clientData.playerId
+                        }
+                    }
+                };
+                
+                await queueEvent(game.eventQueue, disconnectEvent);
+            }
+            
+            clientPlayerMap.delete(ws);
             clients.delete(ws);
         });
 
@@ -121,10 +166,19 @@ export function setupWebSocketServer(game) {
     return { wss, clients };
 }
 
-/**
- * Set up event broadcasting for the text adventure game
- * @param {Object} game - Game object with eventQueue and wsClients
- */
+function getActionSchemas() {
+    const schemas = {};
+    
+    for (const [actionName, actionDef] of Object.entries(action_defs)) {
+        schemas[actionName] = {
+            description: actionDef.description || actionName,
+            parameters: actionDef.parameters || []
+        };
+    }
+    
+    return schemas;
+}
+
 export function setupEventBroadcasting(game) {
     if (!game.eventQueue || !game.wsClients) {
         logger.warn('Event queue or WebSocket clients not available for broadcasting');
@@ -135,69 +189,92 @@ export function setupEventBroadcasting(game) {
 
     // Subscribe to individual events
     game.eventQueue.on('event', (event) => {
-        const message = JSON.stringify({
+        // Handle player_spawned events to map WebSocket to player ID
+        if (event.type === 'system' && event.name === 'player_spawned') {
+            const { ws_id, player_eid } = event.system.details;
+            
+            // Find the WebSocket with this temp ID and update it with the real player ID
+            game.wsClients.forEach((ws) => {
+                const clientData = game.clientPlayerMap.get(ws);
+                if (clientData?.tempId === ws_id) {
+                    clientData.playerId = player_eid;
+                    
+                    // Send player_connected event to this specific client
+                    ws.send(JSON.stringify({
+                        type: 'player_connected',
+                        player_connected: {
+                            playerId: player_eid,
+                            message: 'Welcome to the adventure!'
+                        }
+                    }));
+                    
+                    logger.info(`Mapped WebSocket to player ${player_eid}`);
+                }
+            });
+        }
+        
+        // Broadcast event to all clients
+        broadcastToClients(game, {
             type: 'event',
             data: event
         });
-        logger.info(`Broadcasting event to ${game.wsClients.size} client(s): ${event.type}:${event.name}`);
         
-        let successCount = 0;
-        let failCount = 0;
-        
-        game.wsClients.forEach(client => {
-            if (client.readyState === 1) { // WebSocket.OPEN
-                try {
-                    client.send(message);
-                    successCount++;
-                } catch (error) {
-                    logger.error(`Failed to send to client:`, error.message);
-                    failCount++;
-                }
-            } else {
-                failCount++;
-            }
-        });
-        
-        logger.info(`Event broadcast result: ${successCount} sent, ${failCount} failed`);
+        logger.info(`Broadcasted event: ${event.type}:${event.name}`);
     });
     
     // Subscribe to round state updates
     game.eventQueue.on('round_state', (roundState) => {
-        const message = JSON.stringify({
-            type: 'round_state',
-            data: roundState
-        });
-        logger.info(`Broadcasting round state to ${game.wsClients.size} client(s) - ${roundState.events.length} events`);
+        logger.info(`Broadcasting round state - current actor: ${roundState.currentActorEid}`);
         
-        game.wsClients.forEach(client => {
-            if (client.readyState === 1) {
+        // Send personalized round state to each client with their player ID
+        game.wsClients.forEach((ws) => {
+            const clientData = game.clientPlayerMap.get(ws);
+            const playerId = clientData?.playerId;
+            
+            // Only send if we have a player ID (player has been spawned)
+            if (playerId && ws.readyState === 1) {
                 try {
-                    client.send(message);
+                    ws.send(JSON.stringify({
+                        type: 'round_state',
+                        data: {
+                            playerId: playerId,
+                            currentActorEid: roundState.currentActorEid,
+                            events: roundState.events,
+                            systemsResolved: roundState.systemsResolved
+                        }
+                    }));
+                    
+                    logger.info(`Sent round state to player ${playerId} (current turn: ${roundState.currentActorEid})`);
                 } catch (error) {
-                    logger.error(`Failed to send round state to client:`, error.message);
+                    logger.error(`Failed to send round state to player ${playerId}:`, error.message);
                 }
             }
         });
     });
 }
 
-/**
- * Initialize the text adventure WebSocket functionality
- * This loads actions and sets up the WebSocket server
- * @param {Object} game - Game object with httpServer attached
- */
+function broadcastToClients(game, message) {
+    const messageStr = JSON.stringify(message);
+    
+    game.wsClients.forEach(client => {
+        if (client.readyState === 1) {
+            try {
+                client.send(messageStr);
+            } catch (error) {
+                logger.error(`Failed to send to client:`, error.message);
+            }
+        }
+    });
+}
+
 export async function initializeWebSocket(game) {
-    // Load actions first
     await load_actions();
     logger.info('Text adventure actions loaded');
     
-    // Set up WebSocket server
     const websocketSetup = setupWebSocketServer(game);
     
     if (websocketSetup) {
-        // Set up event broadcasting
         setupEventBroadcasting(game);
-        
         logger.info('Text adventure WebSocket initialization complete');
         return websocketSetup;
     } else {
@@ -206,14 +283,6 @@ export async function initializeWebSocket(game) {
     }
 }
 
-/**
- * Start the first round of the game
- * This should be called after WebSocket is set up
- */
 export async function startFirstRound(game) {
-    if (game.eventQueue && !game.eventQueue.actors.length) {
-        logger.info('Starting first round...');
-        await startRound(game.eventQueue);
-        logger.info('First round started');
-    }
+    // This is called by the game logic, not needed here
 }
