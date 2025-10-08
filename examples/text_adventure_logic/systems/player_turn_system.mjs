@@ -8,6 +8,17 @@ const player_turn_system = async ({game, event}) => {
   const actorEid = event.turn.actor_eid
   
   if (!hasComponent(world, actorEid, Player)) return null
+
+  // In test mode we don't block the event loop waiting for client input.
+  // This allows automated tests to advance immediately after a turn_start.
+  if (game.testMode) {
+    // Immediately emit synthetic turn_end to advance if desired
+    return [{
+      type: 'turn',
+      name: 'turn_end',
+      turn: { actor_eid: actorEid, reason: 'test_mode_auto_advance' }
+    }]
+  }
   
   // Emit turn_start event for the client
   const turnStartEvent = {

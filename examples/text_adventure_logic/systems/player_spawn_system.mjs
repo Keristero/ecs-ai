@@ -7,8 +7,8 @@ const player_spawn_system = async ({ game, event }) => {
     if (event.type === 'system' && event.name === 'player_connect') {
         const { ws_id } = event.system.details;
         
-        // Spawn a new player entity
-        const eid = addEntity(world);
+    // Spawn a new player entity (future enhancement: reuse existing placeholder if desired)
+    const eid = addEntity(world);
         
         const { Player, Name, Health, Location, Inventory, Actor } = world.components;
         
@@ -39,6 +39,11 @@ const player_spawn_system = async ({ game, event }) => {
             Actor.initiative[eid] = 10;
         }
         
+        // Track globally if not already set
+        if (!game.playerId) {
+            game.playerId = eid;
+        }
+
         // Return a player_spawned event
         return {
             type: 'system',

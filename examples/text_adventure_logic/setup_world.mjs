@@ -65,16 +65,12 @@ function setup_world(game) {
     addComponent(world, sword2, IsA(prefabs.rusty_sword))
     addComponent(world, enemy3, Has(sword2))
     
-    // Create player using prefab
-    const player = addEntity(world)
-    addComponent(world, player, IsA(prefabs.self))
-    Player.respawnRoom[player] = room1  // entity ID of respawn room
-    addComponent(world, room1, Has(player))
-    
+    // Note: Player entity is no longer created here. It will be spawned dynamically
+    // by the `player_spawn_system` in response to a websocket `player_connect` event.
     console.log("Game world initialized!")
-    
+
     return {
-        player,
+        // player intentionally omitted until a client connects
         rooms: [room1, room2, room3],
         items: [item1, item2],
         enemies: [enemy1, enemy2, enemy3],

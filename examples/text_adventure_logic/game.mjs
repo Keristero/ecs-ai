@@ -11,8 +11,8 @@ const {world} = game
 const entities = setup_world(game)
 game.entities = entities
 
-// Store the player ID for easy access
-game.playerId = entities.player
+// Player is now spawned dynamically on websocket connection; playerId will be
+// assigned by the player_spawn_system when the first player connects.
 
 // Initialize event queue
 game.eventQueue = createEventQueue(game)

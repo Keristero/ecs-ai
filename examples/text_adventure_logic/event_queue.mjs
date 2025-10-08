@@ -28,6 +28,11 @@ export function getRoundStateSnapshot(queue) {
 export function createEventQueue(game) {
   const systems = game.world.systems || {}
   const emitter = new EventEmitter()
+  // Derive a test mode flag if not already set on the game object.
+  if (typeof game.testMode === 'undefined') {
+    const envFlag = process.env.GAME_TEST_MODE || process.env.NODE_ENV
+    game.testMode = envFlag === 'test'
+  }
   
   return {
     events: [],
@@ -83,7 +88,15 @@ export async function queueEvent(queue, event) {
   }
   
   for (const result of systemResults) {
-    if (result) {
+    if (!result) continue
+    // Support systems returning an array of events
+    if (Array.isArray(result)) {
+      for (const subEvent of result) {
+        if (subEvent) {
+          await queueEvent(queue, subEvent)
+        }
+      }
+    } else {
       await queueEvent(queue, result)
     }
   }
