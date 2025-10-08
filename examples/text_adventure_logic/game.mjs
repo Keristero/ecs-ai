@@ -1,6 +1,7 @@
 import {initialize_game} from "../../game_framework/framework.mjs"
 import {setup_world} from "./setup_world.mjs"
 import {createEventQueue, startRound} from "./event_queue.mjs"
+import {initializeWebSocket, startFirstRound} from "./websocket_implementation.mjs"
 
 const game = await initialize_game()
 
@@ -21,9 +22,13 @@ game.eventQueue = createEventQueue(game)
 
 // Add a no-op update function for compatibility with main.mjs
 // This game is event-driven, so it doesn't use frame-based updates
-game.update = function() {
-    // No-op: This game uses event queue instead of update loops
-    return game
+game.start = async function() {
+    // Set up WebSocket if HTTP server is available (after API server starts)
+    if (game.httpServer && !game.wsInitialized) {
+        await initializeWebSocket(game)
+        await startFirstRound(game)
+        game.wsInitialized = true
+    }
 }
 
 export default game

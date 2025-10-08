@@ -11,7 +11,7 @@ describe('Inspect Action', function() {
         
         expect(event.action.success).to.be.true
         expect(result.entity_name).to.equal('RustySword')
-        expect(result.entity_id).to.be.a('number')
+        expect(result.entity_eid).to.be.a('number')
         expect(result.components).to.be.an('object')
         expect(result.message).to.include('RustySword')
         

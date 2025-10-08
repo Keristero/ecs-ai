@@ -10,11 +10,9 @@ async function start() {
 	const modulePath = path.resolve(env.game_logic_folder_path, env.game_logic_script_name);
 	const game = (await import(modulePath)).default;
 
-	if (!game || typeof game.update !== 'function') {
-		throw new Error(`Game module at ${modulePath} must export a default object with an update function.`);
+	if (!game || typeof game.start !== 'function') {
+		throw new Error(`Game module at ${modulePath} must export a default object with a start function.`);
 	}
-
-	await Promise.resolve(game.update(game));
 
 	try {
 		const [mcpInfo, apiInfo] = await Promise.all([
@@ -32,6 +30,9 @@ async function start() {
 			api: apiAddr,
 			docs: docsUrl
 		});
+
+		// Give the game a chance to initialize any features that depend on the HTTP server
+		await game.start(game);
 	} catch (error) {
 		logger.error('Failed to start services', error);
 		process.exit(1);
