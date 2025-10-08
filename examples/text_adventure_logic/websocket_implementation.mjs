@@ -1,7 +1,9 @@
 import { WebSocketServer } from 'ws';
 import Logger from '../../logger.mjs';
 import { action_defs, load_actions } from '../../game_framework/actions_interface.mjs';
-import { getRoundStateSnapshot, queueEvent } from './event_queue.mjs';
+import { queueEvent } from './event_queue.mjs';
+// Turn system is responsible for round/turn lifecycle & player action waits
+import createTurnSystem from './systems/turn_system.mjs';
 import env from '../../environment.mjs';
 
 const logger = new Logger('Text Adventure WebSocket', 'magenta');
@@ -21,6 +23,11 @@ export function setupWebSocketServer(game) {
     game.wsClients = clients;
     game.wss = wss;
     game.clientPlayerMap = clientPlayerMap;
+
+    // Ensure a singleton turn system attached to game
+    if (!game.turnSystem) {
+        game.turnSystem = createTurnSystem(game)
+    }
 
     wss.on('connection', async (ws) => {
         logger.info('Text adventure client connected');
@@ -65,12 +72,20 @@ export function setupWebSocketServer(game) {
 
                 switch (message.type) {
                     case 'player_action': {
-                        // Store the player's action for the player_turn_system to pick up
-                        if (!game.pendingPlayerActions) {
-                            game.pendingPlayerActions = new Map();
+                        if (!playerId) {
+                            logger.warn('player_action received before playerId assigned');
+                            ws.send(JSON.stringify({ type: 'error', message: 'Player not ready yet' }));
+                            break;
                         }
-                        game.pendingPlayerActions.set(playerId, message.action);
-                        logger.info(`Stored pending action for player ${playerId}:`, message.action);
+                        const actionObj = message.action;
+                        const actionName = actionObj.type;
+                        if (!action_defs[actionName]) {
+                            ws.send(JSON.stringify({ type: 'error', message: `Unknown action: ${actionName}` }));
+                            break;
+                        }
+                        // Submit action to turn system
+                        game.turnSystem.submitPlayerAction(playerId, actionObj)
+                        ws.send(JSON.stringify({ type: 'action_received', action: actionName }))
                         break;
                     }
                     
@@ -149,6 +164,7 @@ export function setupWebSocketServer(game) {
                 };
                 
                 await queueEvent(game.eventQueue, disconnectEvent);
+                game.turnSystem.notifyDisconnect(clientData.playerId)
             }
             
             clientPlayerMap.delete(ws);
@@ -223,34 +239,8 @@ export function setupEventBroadcasting(game) {
     });
     
     // Subscribe to round state updates
-    game.eventQueue.on('round_state', (roundState) => {
-        logger.info(`Broadcasting round state - current actor: ${roundState.currentActorEid}`);
-        
-        // Send personalized round state to each client with their player ID
-        game.wsClients.forEach((ws) => {
-            const clientData = game.clientPlayerMap.get(ws);
-            const playerId = clientData?.playerId;
-            
-            // Only send if we have a player ID (player has been spawned)
-            if (playerId && ws.readyState === 1) {
-                try {
-                    ws.send(JSON.stringify({
-                        type: 'round_state',
-                        data: {
-                            playerId: playerId,
-                            currentActorEid: roundState.currentActorEid,
-                            events: roundState.events,
-                            systemsResolved: roundState.systemsResolved
-                        }
-                    }));
-                    
-                    logger.info(`Sent round state to player ${playerId} (current turn: ${roundState.currentActorEid})`);
-                } catch (error) {
-                    logger.error(`Failed to send round state to player ${playerId}:`, error.message);
-                }
-            }
-        });
-    });
+    // Round state broadcasting removed for now; new turn system can expose
+    // lightweight hooks if needed (e.g., emitting current actor updates).
 }
 
 function broadcastToClients(game, message) {

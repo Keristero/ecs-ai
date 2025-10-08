@@ -1,6 +1,7 @@
 import {initialize_game} from "../../game_framework/framework.mjs"
 import {setup_world} from "./setup_world.mjs"
-import {createEventQueue, startRound} from "./event_queue.mjs"
+import {createEventQueue} from "./event_queue.mjs"
+import createTurnSystem from './systems/turn_system.mjs'
 import {initializeWebSocket, startFirstRound} from "./websocket_implementation.mjs"
 
 const game = await initialize_game()
@@ -26,6 +27,13 @@ game.start = async function() {
     // Set up WebSocket if HTTP server is available (after API server starts)
     if (game.httpServer && !game.wsInitialized) {
         await initializeWebSocket(game)
+        // If a player already exists later rounds can start; for now start immediately
+        if (!game.turnSystem) {
+            game.turnSystem = createTurnSystem(game)
+        }
+        if (!game.turnSystem.isActive()) {
+            await game.turnSystem.startRound()
+        }
         await startFirstRound(game)
         game.wsInitialized = true
     }

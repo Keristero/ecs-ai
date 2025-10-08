@@ -63,7 +63,6 @@ Houses reference game logic bundles. The canonical example is the text adventure
 | `event_queue.mjs` / `event_queue.md` | Event queue implementation + documentation. |
 | `EVENT_EMITTER.md` | Documentation about the event emitter contract. |
 | `websocket_implementation.mjs` | Real-time layer (if used) for broadcasting updates. |
-| `player_action_helper.mjs` | Helper for parsing/applying player actions. |
 | `action_helpers.mjs` | Shared helpers to assist action scripts. |
 
 #### `examples/text_adventure_client/`
