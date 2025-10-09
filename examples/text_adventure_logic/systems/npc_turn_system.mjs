@@ -1,8 +1,9 @@
 import {query, hasComponent} from 'bitecs'
 import use from '../actions/use.mjs'
-import { create_system_event } from '../event_helpers.mjs'
+import System from '../System.mjs'
 
-const npc_turn_system = async ({game, event}) => {
+const npc_turn_system = new System('npc_turn')
+npc_turn_system.func = async function ({game, event}) {
   if (event.type !== 'round' || event.name !== 'round_info') return null
   
   const {world} = game
@@ -22,7 +23,7 @@ const npc_turn_system = async ({game, event}) => {
   
   if (!enemyRoom) {
     // No valid room, end turn
-    return create_system_event('turn_complete', `NPC ${actorEid} turn ended (no room)`, 'npc_turn', { actor_eid: actorEid })
+    return this.create_event('turn_complete', `NPC ${actorEid} turn ended (no room)`, { actor_eid: actorEid })
   }
   
   // Find all players in the same room
@@ -39,7 +40,7 @@ const npc_turn_system = async ({game, event}) => {
     
     if (!weapon) {
       // No weapon, end turn
-      return create_system_event('turn_complete', `NPC ${actorEid} turn ended (no weapon)`, 'npc_turn', { actor_eid: actorEid })
+      return this.create_event('turn_complete', `NPC ${actorEid} turn ended (no weapon)`, { actor_eid: actorEid })
     }
     
     const target = playersInRoom[Math.floor(Math.random() * playersInRoom.length)]
@@ -52,12 +53,12 @@ const npc_turn_system = async ({game, event}) => {
     })
     
     // Return action event followed by turn completion
-    const turnComplete = create_system_event('turn_complete', `NPC ${actorEid} turn ended after action`, 'npc_turn', { actor_eid: actorEid })
+    const turnComplete = this.create_event('turn_complete', `NPC ${actorEid} turn ended after action`, { actor_eid: actorEid })
     return actionEvent ? [actionEvent, turnComplete] : turnComplete
   }
   
   // No targets, end turn
-  return create_system_event('turn_complete', `NPC ${actorEid} turn ended (no targets)`, 'npc_turn', { actor_eid: actorEid })
+  return this.create_event('turn_complete', `NPC ${actorEid} turn ended (no targets)`, { actor_eid: actorEid })
 }
 
 export {npc_turn_system}

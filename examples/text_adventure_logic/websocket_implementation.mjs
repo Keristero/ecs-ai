@@ -1,8 +1,6 @@
 import { WebSocketServer } from 'ws';
 import Logger from '../../logger.mjs';
 import { action_defs, load_actions } from '../../game_framework/actions_interface.mjs';
-import { queueEvent } from './event_queue.mjs';
-import { submitPlayerAction, notifyPlayerDisconnect } from './systems/player_turn_system.mjs';
 import env from '../../environment.mjs';
 
 const logger = new Logger('Text Adventure WebSocket', 'magenta');
@@ -198,7 +196,7 @@ export function setupEventBroadcasting(game) {
     logger.info('Setting up text adventure event broadcasting');
 
     // Subscribe to individual events
-    game.eventQueue.on('event', (event) => {
+    game.event_queue.emitter.on('event', (event) => {
         // Handle player_spawned events to map WebSocket to player ID
         if (event.type === 'system' && event.name === 'player_spawned') {
             const { ws_id, player_eid } = event.system.details;
@@ -234,7 +232,7 @@ export function setupEventBroadcasting(game) {
     
     // Subscribe to round state updates
     // Broadcast round_info events to clients for UI state
-    game.eventQueue.on('event', (event) => {
+    game.event_queue.emitter.on('event', (event) => {
         if (event.type === 'round' && event.name === 'round_info') {
             broadcastToClients(game, { type: 'round_info', data: event.round })
         }
@@ -269,8 +267,4 @@ export async function initializeWebSocket(game) {
         logger.error('Failed to set up WebSocket server');
         return null;
     }
-}
-
-export async function startFirstRound(game) {
-    // This is called by the game logic, not needed here
 }

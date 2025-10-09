@@ -5,6 +5,8 @@ function setup_world(game) {
     const {world, prefabs} = game
     const {Room, Landmark, Player, Name, Description} = world.components
     const {Has, ConnectsTo} = world.relations
+
+    // Player is now spawned dynamically on websocket connection
     
     // Create rooms
     const room1 = addEntity(world)
