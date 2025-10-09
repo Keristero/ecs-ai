@@ -1,5 +1,6 @@
 import {query, hasComponent} from 'bitecs'
 import use from '../actions/use.mjs'
+import { create_system_event } from '../event_helpers.mjs'
 
 const npc_turn_system = async ({game, event}) => {
   if (event.type !== 'round' || event.name !== 'round_info') return null
@@ -21,7 +22,7 @@ const npc_turn_system = async ({game, event}) => {
   
   if (!enemyRoom) {
     // No valid room, end turn
-    return { type: 'turn', name: 'turn_complete', turn: { actor_eid: actorEid } }
+    return create_system_event('turn_complete', `NPC ${actorEid} turn ended (no room)`, 'npc_turn', { actor_eid: actorEid })
   }
   
   // Find all players in the same room
@@ -38,7 +39,7 @@ const npc_turn_system = async ({game, event}) => {
     
     if (!weapon) {
       // No weapon, end turn
-      return { type: 'turn', name: 'turn_complete', turn: { actor_eid: actorEid } }
+      return create_system_event('turn_complete', `NPC ${actorEid} turn ended (no weapon)`, 'npc_turn', { actor_eid: actorEid })
     }
     
     const target = playersInRoom[Math.floor(Math.random() * playersInRoom.length)]
@@ -51,11 +52,12 @@ const npc_turn_system = async ({game, event}) => {
     })
     
     // Return action event followed by turn completion
-    return actionEvent ? [actionEvent, { type: 'turn', name: 'turn_complete', turn: { actor_eid: actorEid } }] : { type: 'turn', name: 'turn_complete', turn: { actor_eid: actorEid } }
+    const turnComplete = create_system_event('turn_complete', `NPC ${actorEid} turn ended after action`, 'npc_turn', { actor_eid: actorEid })
+    return actionEvent ? [actionEvent, turnComplete] : turnComplete
   }
   
   // No targets, end turn
-  return { type: 'turn', name: 'turn_complete', turn: { actor_eid: actorEid } }
+  return create_system_event('turn_complete', `NPC ${actorEid} turn ended (no targets)`, 'npc_turn', { actor_eid: actorEid })
 }
 
 export {npc_turn_system}

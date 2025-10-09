@@ -1,4 +1,5 @@
 import { hasComponent } from 'bitecs'
+import { create_system_event } from '../event_helpers.mjs'
 
 // Player Turn System responsibilities:
 // - On turn_start for a Player actor: wait for externally submitted action, timeout, or disconnect.
@@ -65,11 +66,11 @@ const player_turn_system = async ({ game, event }) => {
     // Map result categories to optional system events by returning arrays
     const events = []
     if (result.kind === 'disconnect') {
-      events.push({ type: 'system', name: 'actor_disconnected', system: { system_name: 'player_turn', details: { actor_eid: actorEid } } })
+      events.push(create_system_event('actor_disconnected', `Player ${actorEid} disconnected`, 'player_turn', { actor_eid: actorEid }))
     } else if (result.kind === 'timeout') {
-      events.push({ type: 'system', name: 'turn_timeout', system: { system_name: 'player_turn', details: { actor_eid: actorEid } } })
+      events.push(create_system_event('turn_timeout', `Player ${actorEid} turn timed out`, 'player_turn', { actor_eid: actorEid }))
     }
-    events.push({ type: 'system', name: 'turn_complete', turn: { actor_eid: actorEid } })
+    events.push(create_system_event('turn_complete', `Turn completed for actor ${actorEid}`, 'player_turn', { actor_eid: actorEid }))
     // Return array of events to enqueue
     return events
   })()

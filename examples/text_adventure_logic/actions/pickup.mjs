@@ -8,7 +8,7 @@ import {
     successResult,
     failureResult
 } from '../helpers.mjs'
-import {createActionEvent} from '../action_helpers.mjs'
+import {create_action_event} from '../event_helpers.mjs'
 
 /**
  * Pickup action - entity picks up an item
@@ -31,7 +31,7 @@ export default function pickup(game, params) {
     // Validate actor has functional Hands
     const handsValidation = validateComponentForAction(world, actorId, Hands, 'Hands', 'pick up items')
     if (!handsValidation.valid) {
-        return createActionEvent('pickup', actorId, actorRoom, false, {
+        return create_action_event('pickup', handsValidation.error, actorId, actorRoom, false, {
             error: handsValidation.error
         })
     }
@@ -39,7 +39,7 @@ export default function pickup(game, params) {
     // Validate item exists and has Item component
     const validation = validateEntity(world, itemId, [Item])
     if (!validation.valid) {
-        return createActionEvent('pickup', actorId, actorRoom, false, {
+        return create_action_event('pickup', "Item not found!", actorId, actorRoom, false, {
             error: "Item not found!",
             item_eid: itemId
         })
@@ -47,7 +47,7 @@ export default function pickup(game, params) {
     
     // Check if item is in the same room as actor
     if (!areInSameRoom(world, actorId, itemId)) {
-        return createActionEvent('pickup', actorId, actorRoom, false, {
+        return create_action_event('pickup', "That item is not here!", actorId, actorRoom, false, {
             error: "That item is not here!",
             item_eid: itemId
         })
@@ -63,7 +63,7 @@ export default function pickup(game, params) {
         message += ` (${handsValidation.warning})`
     }
     
-    return createActionEvent('pickup', actorId, actorRoom, true, {
+    return create_action_event('pickup', message, actorId, actorRoom, true, {
         item_eid: itemId,
         message
     })

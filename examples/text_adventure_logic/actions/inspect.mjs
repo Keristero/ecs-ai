@@ -8,7 +8,7 @@ import {
     successResult,
     failureResult
 } from '../helpers.mjs'
-import {createActionEvent} from '../action_helpers.mjs'
+import {create_action_event} from '../event_helpers.mjs'
 
 /**
  * Inspect action - get detailed information about any named entity
@@ -30,7 +30,7 @@ export default function inspect(game, params) {
     // Validate actor has functional Eyes
     const eyesValidation = validateComponentForAction(world, actorId, Eyes, 'Eyes', 'inspect')
     if (!eyesValidation.valid) {
-        return createActionEvent('inspect', actorId, roomEid, false, {
+        return create_action_event('inspect', eyesValidation.error, actorId, roomEid, false, {
             error: eyesValidation.error
         })
     }
@@ -38,7 +38,7 @@ export default function inspect(game, params) {
     // Find entity by name
     const targetEntity = findEntityByName(world, params.entityName)
     if (!targetEntity) {
-        return createActionEvent('inspect', actorId, roomEid, false, {
+        return create_action_event('inspect', `No entity found with name "${params.entityName}"`, actorId, roomEid, false, {
             error: `No entity found with name "${params.entityName}"`
         })
     }
@@ -107,7 +107,7 @@ export default function inspect(game, params) {
         summary += ` (${eyesValidation.warning})`
     }
     
-    return createActionEvent('inspect', actorId, roomEid, true, {
+    return create_action_event('inspect', summary, actorId, roomEid, true, {
         entity_eid: targetEntity,
         entity_name: params.entityName,
         components: entityComponents,

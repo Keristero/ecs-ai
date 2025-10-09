@@ -1,17 +1,18 @@
 import {query, hasComponent} from 'bitecs'
+import { create_system_event } from '../event_helpers.mjs'
 
 const sound_system = ({game, event}) => {
   if (event.type !== 'action' || event.name !== 'speak') return null
-  if (!event.action.success) return null
+  if (!event.details.success) return null
   
   const {world} = game
   const {Has} = world.relations
   const {Ears, Name} = world.components
   
-  const roomEid = event.action.room_eid
+  const roomEid = event.details.room_eid
   if (!roomEid) return null
   
-  const actorEid = event.action.actor_eid
+  const actorEid = event.details.actor_eid
   
   // Find all entities in the room (entities that the room Has)
   const allEntities = []
@@ -32,19 +33,12 @@ const sound_system = ({game, event}) => {
     world.string_store.getString(Name.value[eid])
   )
   
-  return {
-    type: 'system',
-    name: 'heard',
-    system: {
-      system_name: 'sound',
-      details: {
-        sound: event.action.details.dialogue,
-        listener_count: listeners.length,
-        listeners,
-        room_eid: roomEid
-      }
-    }
-  }
+  return create_system_event('heard', `${listeners.length} listeners heard: "${event.details.dialogue}"`, 'sound', {
+    sound: event.details.dialogue,
+    listener_count: listeners.length,
+    listeners,
+    room_eid: roomEid
+  })
 }
 
 export {sound_system}

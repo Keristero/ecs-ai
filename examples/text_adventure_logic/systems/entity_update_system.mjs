@@ -1,4 +1,5 @@
 import { query } from 'bitecs';
+import { create_system_event } from '../event_helpers.mjs';
 
 const entitySnapshots = new Map();
 
@@ -16,17 +17,10 @@ const entity_update_system = async ({ game, event }) => {
         const currentSnapshot = createSnapshot(world, eid);
         
         if (previousSnapshot && hasChanged(previousSnapshot, currentSnapshot)) {
-            updates.push({
-                type: 'system',
-                name: 'entity_update',
-                system: {
-                    system_name: 'entity_update',
-                    details: {
-                        entityId: eid,
-                        components: currentSnapshot
-                    }
-                }
-            });
+            updates.push(create_system_event('entity_update', `Entity ${eid} was updated`, 'entity_update', {
+                entityId: eid,
+                components: currentSnapshot
+            }));
         }
         
         entitySnapshots.set(eid, currentSnapshot);

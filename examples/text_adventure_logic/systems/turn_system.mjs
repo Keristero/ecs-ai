@@ -1,12 +1,5 @@
 import { query } from 'bitecs'
-
-// Turn system redesign: emits only round_info events containing
-//   { actor_eid, new_round: bool, round_index, turn_index, total_actors }
-// Consumption rules:
-//   - Player & NPC systems react to round_info (not turn_start/turn_end)
-//   - When a consumer finishes an actor's activity it returns a turn_complete event:
-//       { type:'turn', name:'turn_complete', turn:{ actor_eid } }
-//   - Turn system reacts to turn_complete to advance and emit next round_info.
+import { create_system_event } from '../event_helpers.mjs'
 
 function ctx(game) {
   if (!game.turnContext) game.turnContext = { active: false, actors: [], index: -1, round: 0 }
@@ -24,17 +17,13 @@ function computeActors(game) {
 function buildRoundInfo(game, { newRound }) {
   const c = ctx(game)
   const actor = c.actors[c.index] ?? null
-  return {
-    type: 'system',
-    name: 'round_info',
-    round: {
-      actor_eid: actor,
-      new_round: newRound,
-      round_index: c.round,
-      turn_index: c.index,
-      total_actors: c.actors.length
-    }
-  }
+  return create_system_event('round_info', `Round ${c.round}, Turn ${c.index}, Actor ${actor}`, 'turn_system', {
+    actor_eid: actor,
+    new_round: newRound,
+    round_index: c.round,
+    turn_index: c.index,
+    total_actors: c.actors.length
+  })
 }
 
 function advance(game) {

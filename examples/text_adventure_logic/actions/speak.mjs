@@ -8,7 +8,7 @@ import {
     successResult,
     failureResult
 } from '../helpers.mjs'
-import {createActionEvent} from '../action_helpers.mjs'
+import {create_action_event} from '../event_helpers.mjs'
 
 /**
  * Speak action - entity speaks dialogue in current room
@@ -28,7 +28,7 @@ export default function speak(game, params) {
     
     // Check if actor has Attributes component
     if (!hasComponent(world, actorId, Attributes)) {
-        return createActionEvent('speak', actorId, false, {
+        return create_action_event('speak', "Cannot speak: entity lacks Attributes component", actorId, null, false, {
             error: "Cannot speak: entity lacks Attributes component"
         })
     }
@@ -38,7 +38,7 @@ export default function speak(game, params) {
     const intelligence = attributes?.intelligence ?? 0
     
     if (intelligence < 2) {
-        return createActionEvent('speak', actorId, false, {
+        return create_action_event('speak', `Cannot speak: intelligence too low (${intelligence}, needs 2+)`, actorId, null, false, {
             error: `Cannot speak: intelligence too low (${intelligence}, needs 2+)`
         })
     }
@@ -47,7 +47,7 @@ export default function speak(game, params) {
     const currentRoom = findEntityRoom(world, actorId)
     
     if (!currentRoom) {
-        return createActionEvent('speak', actorId, null, false, {
+        return create_action_event('speak', "You are not in any room!", actorId, null, false, {
             error: "You are not in any room!"
         })
     }
@@ -74,7 +74,7 @@ export default function speak(game, params) {
     console.log(`Listeners: ${listeners.length > 0 ? listenerNames.map(l => l.name).join(', ') : 'none'}`)
     console.log('================\n')
     
-    return createActionEvent('speak', actorId, currentRoom, true, {
+    return create_action_event('speak', `You say: "${dialogue}"`, actorId, currentRoom, true, {
         dialogue,
         message: `You say: "${dialogue}"`
     })

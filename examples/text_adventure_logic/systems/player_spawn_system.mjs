@@ -1,4 +1,5 @@
 import { addEntity, addComponent, removeEntity, query } from 'bitecs';
+import { create_system_event } from '../event_helpers.mjs';
 
 const player_spawn_system = async ({ game, event }) => {
     const { world } = game;
@@ -45,17 +46,10 @@ const player_spawn_system = async ({ game, event }) => {
         }
 
         // Return a player_spawned event
-        return {
-            type: 'system',
-            name: 'player_spawned',
-            system: {
-                system_name: 'player_spawn',
-                details: {
-                    ws_id: ws_id,
-                    player_eid: eid
-                }
-            }
-        };
+        return create_system_event('player_spawned', `Player ${eid} spawned for ws_id ${ws_id}`, 'player_spawn', {
+            ws_id: ws_id,
+            player_eid: eid
+        });
     }
     
     // Handle player disconnect events
@@ -64,16 +58,9 @@ const player_spawn_system = async ({ game, event }) => {
         
         removeEntity(world, player_eid);
         
-        return {
-            type: 'system',
-            name: 'player_despawned',
-            system: {
-                system_name: 'player_spawn',
-                details: {
-                    player_eid: player_eid
-                }
-            }
-        };
+        return create_system_event('player_despawned', `Player ${player_eid} despawned`, 'player_spawn', {
+            player_eid: player_eid
+        });
     }
     
     return null;
