@@ -212,7 +212,7 @@ const submitCommand = () => {
     
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
-            type: 'player_action',
+            type: 'action',
             action: action
         }));
         core.state.isPlayerTurn = false;

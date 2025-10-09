@@ -8,6 +8,15 @@ import {query, hasComponent, getComponent, addComponent, removeComponent} from '
 // ==================== Entity Query Helpers ====================
 
 /**
+ * Sleep for a time, async
+ * @param {number} ms milliseconds to sleep
+ * @returns {Promise<void>}
+ */
+export function sleep(ms){
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
  * Find the room that contains a specific entity
  * @param {Object} world - The ECS world
  * @param {number} entityId - Entity to find room for

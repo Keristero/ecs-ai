@@ -4,9 +4,15 @@ import Logger from '../../logger.mjs'
 const logger = new Logger('EventQueue', 'yellow')
 import { z } from 'zod'
 
+export const EVENT_NAMES = {
+    GAME_START: 'game_start',
+    ACTOR_TURN_CHANGE: 'actor_turn_change',
+    ACTION: 'action',
+}
+
 //zod schema for event
 let event_schema = z.object({
-    name: z.string(),
+    name: z.enum(Object.values(EVENT_NAMES)),
     message: z.string(),
     type: z.enum(["action", "system"]),
     details: z.record(z.any())
@@ -44,7 +50,7 @@ export class EventQueue {
         for(const system_name in this.systems){
             console.log("Processing system:", system_name);
             let system = this.systems[system_name]
-            responses[system_name] = await system.func({game: this.game, event})
+            responses[system_name] = await system.handle_event({game: this.game, event})
         }
 
         await Promise.all(Object.values(responses))
@@ -52,8 +58,7 @@ export class EventQueue {
         for(const system_name in responses){
             let result = responses[system_name]
             if(result != null){
-                console.log(result)
-                await this.queue(result.value)
+                await this.queue(result)
             }
         }
     }

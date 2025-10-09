@@ -1,6 +1,6 @@
 // Configuration for which events should be logged and which UI elements they update
 export const eventConfig = {
-    'player_action_result': {
+    'action_result': {
         logMessage: true,
         updateUI: ['log'],
         messageColor: 'info'
