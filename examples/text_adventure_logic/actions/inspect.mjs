@@ -30,17 +30,13 @@ export default function inspect(game, params) {
     // Validate actor has functional Eyes
     const eyesValidation = validateComponentForAction(world, actorId, Eyes, 'Eyes', 'inspect')
     if (!eyesValidation.valid) {
-        return create_action_event('inspect', eyesValidation.error, actorId, roomEid, false, {
-            error: eyesValidation.error
-        })
+        return create_action_event('inspect', eyesValidation.error, actorId, roomEid, false, {})
     }
     
     // Find entity by name
     const targetEntity = findEntityByName(world, params.entityName)
     if (!targetEntity) {
-        return create_action_event('inspect', `No entity found with name "${params.entityName}"`, actorId, roomEid, false, {
-            error: `No entity found with name "${params.entityName}"`
-        })
+        return create_action_event('inspect', `No entity found with name "${params.entityName}"`, actorId, roomEid, false, {})
     }
     
     // Get all components for this entity
@@ -111,8 +107,7 @@ export default function inspect(game, params) {
         entity_eid: targetEntity,
         entity_name: params.entityName,
         components: entityComponents,
-        relations: entityRelations,
-        message: summary
+        relations: entityRelations
     })
 }
 

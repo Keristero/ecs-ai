@@ -58,7 +58,7 @@ const player_turn_system = async ({ game, event }) => {
   if (event.type !== 'round' || event.name !== 'round_info') return null
   const { world } = game
   const { Player } = world.components
-  const actorEid = event.round.actor_eid
+  const actorEid = event.details.actor_eid
   if (!Player || !hasComponent(world, actorEid, Player)) return null
 
   ;(async () => {

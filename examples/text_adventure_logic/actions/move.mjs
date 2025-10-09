@@ -26,9 +26,7 @@ export default function move(game, params) {
     const currentRoom = findEntityRoom(world, actorId)
     
     if (!currentRoom) {
-        return create_action_event('move', "You are not in any room!", actorId, null, false, {
-            error: "You are not in any room!"
-        })
+        return create_action_event('move', "You are not in any room!", actorId, null, false, {})
     }
     
     // Find connected room in the specified direction
@@ -36,7 +34,6 @@ export default function move(game, params) {
     
     if (connectedRooms.length === 0) {
         return create_action_event('move', `There is no exit to the ${direction}.`, actorId, currentRoom, false, {
-            error: `There is no exit to the ${direction}.`,
             direction
         })
     }
@@ -55,7 +52,6 @@ export default function move(game, params) {
         direction,
         from_room_eid: currentRoom,
         to_room_eid: targetRoom,
-        message: `You move ${direction}.`,
         look_details: lookResult.details
     })
 }

@@ -29,18 +29,14 @@ export default function look(game, params) {
     // Validate actor has functional Eyes
     const eyesValidation = validateComponentForAction(world, actorId, Eyes, 'Eyes', 'look')
     if (!eyesValidation.valid) {
-        return create_action_event('look', eyesValidation.error, actorId, null, false, {
-            error: eyesValidation.error
-        })
+        return create_action_event('look', eyesValidation.error, actorId, null, false, {})
     }
     
     // Find current room
     const currentRoom = findEntityRoom(world, actorId)
     
     if (!currentRoom) {
-        return create_action_event('look', "You are not in any room!", actorId, null, false, {
-            error: "You are not in any room!"
-        })
+        return create_action_event('look', "You are not in any room!", actorId, null, false, {})
     }
     
     // Get room info
@@ -88,8 +84,7 @@ export default function look(game, params) {
         items: formatEntitiesDisplay(world, items),
         landmarks: formatEntitiesDisplay(world, landmarks),
         enemies: formatEntitiesDisplay(world, enemies),
-        inventory: formatEntitiesDisplay(world, inventory),
-        message
+        inventory: formatEntitiesDisplay(world, inventory)
     })
 }
 

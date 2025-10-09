@@ -6,7 +6,7 @@ const player_spawn_system = async ({ game, event }) => {
     
     // Handle player connect events
     if (event.type === 'system' && event.name === 'player_connect') {
-        const { ws_id } = event.system.details;
+        const { ws_id } = event.details;
         
     // Spawn a new player entity (future enhancement: reuse existing placeholder if desired)
     const eid = addEntity(world);
@@ -54,7 +54,7 @@ const player_spawn_system = async ({ game, event }) => {
     
     // Handle player disconnect events
     if (event.type === 'system' && event.name === 'player_disconnect') {
-        const { player_eid } = event.system.details;
+        const { player_eid } = event.details;
         
         removeEntity(world, player_eid);
         

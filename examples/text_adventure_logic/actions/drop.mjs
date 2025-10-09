@@ -30,24 +30,19 @@ export default function drop(game, params) {
     const actorRoom = findEntityRoom(world, actorId)
     
     if (!actorRoom) {
-        return create_action_event('drop', "You are not in any room!", actorId, null, false, {
-            error: "You are not in any room!"
-        })
+        return create_action_event('drop', "You are not in any room!", actorId, null, false, {})
     }
     
     // Validate actor has functional Hands
     const handsValidation = validateComponentForAction(world, actorId, Hands, 'Hands', 'drop items')
     if (!handsValidation.valid) {
-        return create_action_event('drop', handsValidation.error, actorId, actorRoom, false, {
-            error: handsValidation.error
-        })
+        return create_action_event('drop', handsValidation.error, actorId, actorRoom, false, {})
     }
     
     // Validate item exists and has Item component
     const validation = validateEntity(world, itemId, [Item])
     if (!validation.valid) {
         return create_action_event('drop', "Item not found!", actorId, actorRoom, false, {
-            error: "Item not found!",
             item_eid: itemId
         })
     }
@@ -55,7 +50,6 @@ export default function drop(game, params) {
     // Check if actor has the item in inventory
     if (!hasItemInInventory(world, actorId, itemId)) {
         return create_action_event('drop', "You don't have that item!", actorId, actorRoom, false, {
-            error: "You don't have that item!",
             item_eid: itemId
         })
     }
@@ -71,8 +65,7 @@ export default function drop(game, params) {
     }
     
     return create_action_event('drop', message, actorId, actorRoom, true, {
-        item_eid: itemId,
-        message
+        item_eid: itemId
     })
 }
 

@@ -33,22 +33,17 @@ export default function use(game, params) {
     // Validate actor has functional Hands
     const handsValidation = validateComponentForAction(world, actorId, Hands, 'Hands', 'use items')
     if (!handsValidation.valid) {
-        return create_action_event('use', actorId, roomEid, false, {
-            error: handsValidation.error
-        })
+        return create_action_event('use', handsValidation.error, actorId, roomEid, false, {})
     }
     
     // Check if actor has the item
     if (!hasItemInInventory(world, actorId, itemId)) {
-        return create_action_event('use', actorId, roomEid, false, {
-            error: "You don't have that item!"
-        })
+        return create_action_event('use', "You don't have that item!", actorId, roomEid, false, {})
     }
     
     // Check if item has Usable component
     if (!hasComponent(world, itemId, Usable)) {
-        return create_action_event('use', actorId, roomEid, false, {
-            error: "That item cannot be used.",
+        return create_action_event('use', "That item cannot be used.", actorId, roomEid, false, {
             item_eid: itemId
         })
     }
@@ -62,8 +57,7 @@ export default function use(game, params) {
     
     // Validate usable data
     if (!targetComponentName || !modifyComponentName || !modifyField || modifyAmount === undefined) {
-        return create_action_event('use', actorId, roomEid, false, {
-            error: "This item is not properly configured.",
+        return create_action_event('use', "This item is not properly configured.", actorId, roomEid, false, {
             item_eid: itemId
         })
     }
@@ -73,8 +67,7 @@ export default function use(game, params) {
     const modifyComponent = world.components[modifyComponentName]
     
     if (!targetComponent || !modifyComponent) {
-        return create_action_event('use', actorId, roomEid, false, {
-            error: "This item references unknown components.",
+        return create_action_event('use', "This item references unknown components.", actorId, roomEid, false, {
             item_eid: itemId
         })
     }
@@ -86,8 +79,7 @@ export default function use(game, params) {
     
     // Validate target has required component
     if (!hasComponent(world, targetId, targetComponent)) {
-        return create_action_event('use', actorId, roomEid, false, {
-            error: "That is not a valid target for this item!",
+        return create_action_event('use', "That is not a valid target for this item!", actorId, roomEid, false, {
             item_eid: itemId,
             target_eid: targetId
         })
@@ -95,8 +87,7 @@ export default function use(game, params) {
     
     // Validate target has component to modify
     if (!hasComponent(world, targetId, modifyComponent)) {
-        return create_action_event('use', actorId, roomEid, false, {
-            error: "That target cannot be affected by this item!",
+        return create_action_event('use', "That target cannot be affected by this item!", actorId, roomEid, false, {
             item_eid: itemId,
             target_eid: targetId
         })
@@ -104,8 +95,7 @@ export default function use(game, params) {
     
     // Check if target is in same room as actor (if not self)
     if (targetId !== actorId && !areInSameRoom(world, actorId, targetId)) {
-        return create_action_event('use', actorId, roomEid, false, {
-            error: "That target is not here!",
+        return create_action_event('use', "That target is not here!", actorId, roomEid, false, {
             item_eid: itemId,
             target_eid: targetId
         })
@@ -141,8 +131,7 @@ export default function use(game, params) {
         message += ` (${handsValidation.warning})`
     }
     
-    return create_action_event('use', actorId, roomEid, true, {
-        message,
+    return create_action_event('use', message, actorId, roomEid, true, {
         item_eid: itemId,
         item_name: itemName,
         target_eid: targetId,

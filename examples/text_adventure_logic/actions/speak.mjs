@@ -28,9 +28,7 @@ export default function speak(game, params) {
     
     // Check if actor has Attributes component
     if (!hasComponent(world, actorId, Attributes)) {
-        return create_action_event('speak', "Cannot speak: entity lacks Attributes component", actorId, null, false, {
-            error: "Cannot speak: entity lacks Attributes component"
-        })
+        return create_action_event('speak', "Cannot speak: entity lacks Attributes component", actorId, null, false, {})
     }
     
     // Get actor's intelligence
@@ -38,18 +36,14 @@ export default function speak(game, params) {
     const intelligence = attributes?.intelligence ?? 0
     
     if (intelligence < 2) {
-        return create_action_event('speak', `Cannot speak: intelligence too low (${intelligence}, needs 2+)`, actorId, null, false, {
-            error: `Cannot speak: intelligence too low (${intelligence}, needs 2+)`
-        })
+        return create_action_event('speak', `Cannot speak: intelligence too low (${intelligence}, needs 2+)`, actorId, null, false, {})
     }
     
     // Find current room
     const currentRoom = findEntityRoom(world, actorId)
     
     if (!currentRoom) {
-        return create_action_event('speak', "You are not in any room!", actorId, null, false, {
-            error: "You are not in any room!"
-        })
+        return create_action_event('speak', "You are not in any room!", actorId, null, false, {})
     }
     
     // Get all entities in the room
@@ -75,8 +69,7 @@ export default function speak(game, params) {
     console.log('================\n')
     
     return create_action_event('speak', `You say: "${dialogue}"`, actorId, currentRoom, true, {
-        dialogue,
-        message: `You say: "${dialogue}"`
+        dialogue
     })
 }
 

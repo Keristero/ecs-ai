@@ -64,7 +64,7 @@ const turn_system = async ({ game, event }) => {
   if (event.type === 'turn' && event.name === 'turn_complete') {
     // Validate actor matches current
     const actor = c.actors[c.index]
-    if (event.turn?.actor_eid !== actor) {
+    if (event.details?.actor_eid !== actor) {
       // Ignore out-of-order completions
       return null
     }

@@ -7,7 +7,7 @@ const npc_turn_system = async ({game, event}) => {
   
   const {world} = game
   const {Enemy, Player, Usable, Item} = world.components
-  const actorEid = event.round.actor_eid
+  const actorEid = event.details.actor_eid
   
   if (!hasComponent(world, actorEid, Enemy) || hasComponent(world, actorEid, Player)) return null
   
