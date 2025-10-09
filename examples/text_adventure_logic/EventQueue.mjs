@@ -8,6 +8,8 @@ export const EVENT_NAMES = {
     GAME_START: 'game_start',
     ACTOR_TURN_CHANGE: 'actor_turn_change',
     ACTION: 'action',
+    IDENTIFY_PLAYER: 'identify_player',
+    LOOK: 'look',
 }
 
 //zod schema for event
@@ -31,7 +33,7 @@ export function create_event(event_name, message, event_type, details = {}) {
 export class EventQueue {
     constructor(game) {
         this.events = [] // chronological list of events
-        this.systems = game.world.systems || {}
+        this.systems = game.systems || {}
         this.game = game
         this.emitter = new EventEmitter()
     }
@@ -48,7 +50,7 @@ export class EventQueue {
         let responses = {}
 
         for(const system_name in this.systems){
-            console.log("Processing system:", system_name);
+            logger.info("Processing system:", system_name);
             let system = this.systems[system_name]
             responses[system_name] = await system.handle_event({game: this.game, event})
         }

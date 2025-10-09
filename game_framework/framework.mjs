@@ -58,17 +58,8 @@ async function initialize_game(){
     let systems_folder = path.resolve(baseGameLogicPath, 'systems')
     const systems = await _import_all_exports_from_directory(systems_folder)
 
-    // Try to load update system (optional for event-driven games)
-    const updateModulePath = path.resolve(baseGameLogicPath, 'systems', 'update.mjs')
-    try {
-        const updateModule = await import(updateModulePath)
-        if(updateModule.update){
-            game.update = updateModule.update
-            logger.info("Loaded update system")
-        }
-    } catch (error) {
-        logger.info("No update.mjs found - using event-driven architecture")
-    }
+    let actions_folder = path.resolve(baseGameLogicPath, 'actions')
+    const actions = await _import_all_exports_from_directory(actions_folder)
 
     game.world = createWorld({
         components: {},
@@ -76,7 +67,8 @@ async function initialize_game(){
     })
     
     // Store systems on world for easy access
-    game.world.systems = systems
+    game.systems = systems
+    game.actions = actions
     
     // Setup string store for components that need string storage
     // This provides a generic way to store strings referenced by index

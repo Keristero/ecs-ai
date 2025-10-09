@@ -4,7 +4,7 @@ import {addPrefab, addComponent, set} from 'bitecs'
  * Player prefab - represents the player character
  * Note: respawnRoom should be set when placing the player in the world
  */
-export default function create_self_prefab(world, prefabs) {
+export default function create_player_prefab(world, prefabs) {
     const {Player, Actor, Name, Description, Hitpoints, Attributes, Ears, Eyes, Hands} = world.components
     
     const Self = addPrefab(world)
