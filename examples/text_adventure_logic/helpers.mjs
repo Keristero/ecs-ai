@@ -62,6 +62,7 @@ export function get_all_components_and_relations(world,eid){
 
 /**
  * Get relation data for an entity in the format: "RelationName": {targetEid: {relationData}}
+ * Uses pure bitECS patterns with query and standard component access
  * @param {Object} world - The ECS world
  * @param {number} eid - Entity ID to get relations for
  * @param {string[]} relation_names - Optional array of relation names to filter by
@@ -79,76 +80,38 @@ export function get_relation_data_for_entity(world, eid, relation_names = []) {
         const relation = world.relations[relation_name]
         if (!relation) continue
         
-        try {
-            // Try to get relation targets
-            const targets = getRelationTargets(world, eid, relation)
-            if (targets && targets.length > 0) {
-                results[relation_name] = {}
-                
-                for (const target_eid of targets) {
-                    // Get the relation data between eid and target_eid
-                    const relation_data = getComponent(world, eid, relation(target_eid))
-                    results[relation_name][target_eid] = relation_data || {}
-                }
-            } else {
-                // If getRelationTargets returns empty array, also try fallback
-                throw new Error('getRelationTargets returned empty array')
+        // Use ECS query to find all entities that have this relation with any target
+        const entities_with_relation = query(world, [relation(Wildcard)])
+
+        
+        // Check if our entity has this relation
+        if (entities_with_relation.includes(eid)) {
+            results[relation_name] = {}
+            
+            // We need to find what entities our entity has relations WITH
+            // Use a more efficient approach: collect all entities that appear in ANY relation query
+            const allPossibleTargets = new Set()
+            
+            // Collect entities from all relation queries to build comprehensive target list
+            for (const other_relation_name in world.relations) {
+                const other_entities = query(world, [world.relations[other_relation_name](Wildcard)])
+                other_entities.forEach(e => allPossibleTargets.add(e))
             }
-        } catch (e) {
-            // Fall back to query approach if getRelationTargets fails
-            try {
-                // Query all entities that have this relation
-                const entities_with_relation = query(world, [relation(Wildcard)])
+            
+            // Also add some buffer for recently created entities
+            const maxKnownEntity = allPossibleTargets.size > 0 ? Math.max(...allPossibleTargets) : 0
+            for (let i = maxKnownEntity + 1; i <= maxKnownEntity + 10; i++) {
+                allPossibleTargets.add(i)
+            }
+            
+            // Check each possible target using pure bitECS functions
+            for (const potential_target of allPossibleTargets) {
+                if (potential_target === eid) continue
                 
-                // Check if our entity has this relation
-                if (entities_with_relation.includes(eid)) {
-                    results[relation_name] = {}
-                    
-                    // We need to find what targets this entity has for this relation
-                    // Try querying all entities and check if our entity has relation with them
-                    for (const potential_target of entities_with_relation) {
-                        if (potential_target === eid) continue
-                        
-                        try {
-                            // Check if relation exists between these entities
-                            const relation_component = relation(potential_target)
-                            if (getComponent(world, eid, relation_component) !== undefined) {
-                                // Access relation data from the relation's field arrays
-                                const relation_data = {}
-                                
-                                // Get the relation schema to know what fields exist
-                                if (relation_component.direction && relation_component.direction[eid] !== undefined) {
-                                    const directionIndex = relation_component.direction[eid]
-                                    relation_data.direction = world.string_store.getString(directionIndex)
-                                }
-                                
-                                // Add other fields if they exist in the relation schema
-                                for (const field_name in relation_component) {
-                                    if (field_name !== 'direction' && relation_component[field_name] && relation_component[field_name][eid] !== undefined) {
-                                        const field_value = relation_component[field_name][eid]
-                                        // Try to convert from string store if it's a number
-                                        if (typeof field_value === 'number' && world.string_store) {
-                                            try {
-                                                relation_data[field_name] = world.string_store.getString(field_value)
-                                            } catch (e3) {
-                                                relation_data[field_name] = field_value
-                                            }
-                                        } else {
-                                            relation_data[field_name] = field_value
-                                        }
-                                    }
-                                }
-                                
-                                results[relation_name][potential_target] = relation_data
-                            }
-                        } catch (e2) {
-                            // No relation data between these entities
-                        }
-                    }
+                if (hasComponent(world, eid, relation(potential_target))) {
+                    const relation_data = getComponent(world, eid, relation(potential_target))
+                    results[relation_name][potential_target] = relation_data || {}
                 }
-            } catch (e2) {
-                // Both methods failed, skip this relation
-                console.warn(`Could not get relation data for ${relation_name}:`, e2.message)
             }
         }
     }

@@ -356,6 +356,8 @@ describe('CreateComponent and CreateRelation Observer Tests', function() {
             addComponent(world, room, Has(item1))
             addComponent(world, room, Has(item2))
             
+
+            
             const relationData = get_relation_data_for_entity(world, room, ['Has'])
             
             expect(relationData).to.have.property('Has')

@@ -30,8 +30,10 @@ function CreateRelation(options,schema=z.object({})){
             ...options
         })
         
-        // Wrap the relation to track store creation
+        // Store reference to original relation for bitECS compatibility
         const originalRelation = data
+        
+        // Wrap the relation to track store creation while preserving bitECS compatibility
         data = new Proxy(originalRelation, {
             apply(target, thisArg, args) {
                 const targetEid = args[0] // The target entity ID
@@ -43,6 +45,10 @@ function CreateRelation(options,schema=z.object({})){
                 }
                 
                 return store
+            },
+            get(target, prop) {
+                // Preserve all bitECS properties and methods
+                return Reflect.get(target, prop)
             }
         })
         
@@ -63,44 +69,75 @@ function CreateRelation(options,schema=z.object({})){
             
             const {getString, addString} = world.string_store
             
-            // Set up observer that will apply to all stores created by this relation
-            // We need to observe each individual store as it's created
-            const originalRelation = data._unwrapped || data
-            
-            // Wrap the relation function to add observers to newly created stores
-            const wrappedRelation = function(targetEid) {
-                const store = originalRelation(targetEid)
+            // Set up observers on existing stores and future stores
+            const setupObserversForStore = (store) => {
+                if (store._hasObservers) return store
                 
-                // Check if we've already set up observers for this store
-                if (!store._hasObservers) {
-                    observe(world, onSet(store), (eid, params) => {
-                        if (!params) return
-                        schema.parse(params)
-                        
-                        for(const param in params){
-                            const fieldType = schema.shape[param]
-                            if(fieldType._def?.typeName === 'ZodString'){
-                                store[param][eid] = addString(params[param])
-                            }
-                            else if(fieldType._def?.typeName === 'ZodNumber'){
-                                store[param][eid] = params[param]
+                observe(world, onSet(store), (eid, params) => {
+                    if (!params) return
+                    schema.parse(params)
+                    
+                    for(const param in params){
+                        const fieldType = schema.shape[param]
+                        if(fieldType._def?.typeName === 'ZodString'){
+                            store[param][eid] = addString(params[param])
+                        }
+                        else if(fieldType._def?.typeName === 'ZodNumber'){
+                            store[param][eid] = params[param]
+                        }
+                    }
+                })
+                
+                // Add onGet observer for proper bitECS compatibility
+                observe(world, onGet(store), (eid) => {
+                    const result = {}
+                    for(const field in schema.shape){
+                        const fieldType = schema.shape[field]
+                        if(fieldType._def?.typeName === 'ZodString'){
+                            const stringIndex = store[field][eid]
+                            if(stringIndex !== undefined) {
+                                result[field] = getString(stringIndex)
                             }
                         }
-                    })
-                    store._hasObservers = true
-                }
+                        else if(fieldType._def?.typeName === 'ZodNumber'){
+                            result[field] = store[field][eid]
+                        }
+                    }
+                    return result
+                })
                 
+                store._hasObservers = true
                 return store
             }
             
-            // Copy properties from original relation
-            Object.setPrototypeOf(wrappedRelation, Object.getPrototypeOf(originalRelation))
-            for(const key in originalRelation) {
-                wrappedRelation[key] = originalRelation[key]
+            // Set up observers on already created stores
+            for(const store of data._stores.values()) {
+                setupObserversForStore(store)
             }
-            wrappedRelation._unwrapped = originalRelation
             
-            // Update the relation in world and metadata
+            // Wrap the relation to add observers to newly created stores
+            const originalRelation = data
+            const wrappedRelation = function(targetEid) {
+                const store = originalRelation(targetEid)
+                return setupObserversForStore(store)
+            }
+            
+            // Preserve all bitECS properties and prototype chain for full compatibility
+            Object.setPrototypeOf(wrappedRelation, Object.getPrototypeOf(originalRelation))
+            
+            // Copy all enumerable and non-enumerable properties
+            const descriptors = Object.getOwnPropertyDescriptors(originalRelation)
+            for(const key in descriptors) {
+                if(key !== 'length' && key !== 'name' && key !== 'prototype') {
+                    Object.defineProperty(wrappedRelation, key, descriptors[key])
+                }
+            }
+            
+            // Ensure bitECS can recognize this as the same relation type
+            wrappedRelation._bitECSRelation = true
+            wrappedRelation._original = originalRelation
+            
+            // Update the relation in metadata
             relation_metadata.data = wrappedRelation
         }
     }
