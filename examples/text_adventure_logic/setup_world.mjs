@@ -73,12 +73,7 @@ function setup_world(game) {
     console.log("Game world initialized!")
     
     return {
-        // player intentionally omitted until a client connects
-        starting_room: room1, // Export starting room for player spawning
-        rooms: [room1, room2, room3],
-        items: [item1, item2],
-        enemies: [enemy1, enemy2, enemy3],
-        landmarks: [landmark1]
+        starting_room: room1 // Only return starting room for player spawning
     }
 }
 
