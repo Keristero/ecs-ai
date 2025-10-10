@@ -13,7 +13,6 @@ function setup_world(game) {
     addComponent(world, room1, Room)
     addComponent(world, room1, set(Name, {value: "Starting Cave"}))
     addComponent(world, room1, set(Description, {value: "A dark, damp cave with rough stone walls."}))
-    
     const room2 = addEntity(world)
     addComponent(world, room2, Room)
     addComponent(world, room2, set(Name, {value: "Forest Path"}))
@@ -47,6 +46,7 @@ function setup_world(game) {
     addComponent(world, room2, Has(item2))
     
     // Create enemies using prefabs - instantiate from prefab templates
+    /*
     const enemy1 = addEntity(world)
     addComponent(world, enemy1, IsA(prefabs.goblin))
     addComponent(world, room2, Has(enemy1))
@@ -66,13 +66,15 @@ function setup_world(game) {
     const sword2 = addEntity(world)
     addComponent(world, sword2, IsA(prefabs.rusty_sword))
     addComponent(world, enemy3, Has(sword2))
+    **/
     
     // Note: Player entity is no longer created here. It will be spawned dynamically
     // by the `player_spawn_system` in response to a websocket `player_connect` event.
     console.log("Game world initialized!")
-
+    
     return {
         // player intentionally omitted until a client connects
+        starting_room: room1, // Export starting room for player spawning
         rooms: [room1, room2, room3],
         items: [item1, item2],
         enemies: [enemy1, enemy2, enemy3],

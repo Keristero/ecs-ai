@@ -4,7 +4,7 @@
   "main": "main.mjs",
   "type": "module",
   "scripts": {
-    "start": "node main.mjs",
+    "start": "nodemon --clear main.mjs",
     "test": "mocha tests/**/*.test.mjs",
     "test:client": "mocha examples/text_adventure_client/tests/**/*.test.mjs",
     "test:relations": "node tests/framework/relations.test.mjs"

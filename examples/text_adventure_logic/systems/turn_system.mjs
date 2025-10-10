@@ -3,29 +3,35 @@ import System from '../System.mjs'
 import { EVENT_NAMES } from '../EventQueue.mjs'
 import { sleep } from '../helpers.mjs'
 
-const turn_system = new System('turn_system')
+const turn_system = new System('turn_system', 200) // Lowest priority - manage turn order
 
 turn_system.func = async function ({ game, event }) {
     console.log("Turn system handling event:", event);
     if(event.name === EVENT_NAMES.GAME_START){
-        return this.increment_round(game)
+        return await this.increment_round(game)
     }
     if(event.type === 'action' && event.details.actor_eid == this.current_turn_eid){
         //throttle actions if no players are connected
-        if(game.wss){
+        if(game.wss && game.wss.clients.size === 0){
             await sleep(1000)
         }
-        return this.increment_turn(game)
+        return await this.increment_turn(game)
     }
     return null
 }
 
-turn_system.increment_round = function(game){
+turn_system.increment_round = async function(game){
     let {Actor} = game.world.components
-    this.actors = query(game.world, [Actor])
-    if(this.actors.length === 0){
-        throw new Error("No actors found in the world to take turns")
+    
+    // Wait for actors to be available
+    while(true) {
+        this.actors = query(game.world, [Actor])
+        if(this.actors.length > 0) {
+            break
+        }
+        await sleep(1000) // Wait 1 second before checking again
     }
+    
     this.actors.sort((a, b) => b - a);
     this.round_number = this.round_number + 1 || 1
     console.log(`--- Round ${this.round_number} ---`)
@@ -33,9 +39,9 @@ turn_system.increment_round = function(game){
     return this.increment_turn(game)
 }
 
-turn_system.increment_turn = function(game){
+turn_system.increment_turn = async function(game){
     if(this.actors_who_have_not_taken_their_turn.length === 0){
-        return this.increment_round(game)
+        return await this.increment_round(game)
     }else{
         this.current_turn_eid = this.actors_who_have_not_taken_their_turn.shift()
         this.action_taken = null

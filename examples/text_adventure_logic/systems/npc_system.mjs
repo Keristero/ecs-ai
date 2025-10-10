@@ -5,7 +5,7 @@ import { SOCKET_MESSAGE_TYPES } from '../WebSocketManager.mjs'
 import { sleep } from '../helpers.mjs'
 import Logger from '../../../logger.mjs'
 
-const npc_system = new System('npc_system')
+const npc_system = new System('npc_system', 20) // Medium priority - handle NPC actions after players
 npc_system.event_whitelist = [EVENT_NAMES.GAME_START,EVENT_NAMES.ACTOR_TURN_CHANGE]
 
 npc_system.func = async function ({ game, event }) {

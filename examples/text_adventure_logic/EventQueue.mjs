@@ -14,7 +14,7 @@ export const EVENT_NAMES = {
 
 //zod schema for event
 let event_schema = z.object({
-    name: z.enum(Object.values(EVENT_NAMES)),
+    name: z.string(), // Allow any string for custom system events
     message: z.string(),
     type: z.enum(["action", "system"]),
     details: z.record(z.any())
@@ -43,15 +43,18 @@ export class EventQueue {
         this.events.push(event)
         this.emitter.emit('event', event)
 
-        // Get system names for tracking
-        const systemNames = Object.keys(this.systems)
-        const systemFunctions = Object.values(this.systems)
+        // Sort systems by priority (lower number = higher priority)
+        const sortedSystems = Object.entries(this.systems)
+            .sort(([nameA, systemA], [nameB, systemB]) => {
+                const priorityA = systemA.priority ?? 0
+                const priorityB = systemB.priority ?? 0
+                return priorityA - priorityB
+            })
 
         let responses = {}
 
-        for(const system_name in this.systems){
-            logger.info("Processing system:", system_name);
-            let system = this.systems[system_name]
+        for(const [system_name, system] of sortedSystems){
+            logger.info("Processing system:", system_name, "priority:", system.priority ?? 0);
             responses[system_name] = await system.handle_event({game: this.game, event})
         }
 

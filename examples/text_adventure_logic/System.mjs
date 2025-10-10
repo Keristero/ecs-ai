@@ -1,8 +1,9 @@
 import { create_event } from './EventQueue.mjs'
 
 class System {
-    constructor(name) {
+    constructor(name, priority = 0) {
         this.name = name
+        this.priority = priority
         this.event_whitelist = null
     }
     handle_event({game,event}){

@@ -14,7 +14,8 @@ const zPromptPayload = z.object({
     toolsBlacklist: z.array(z.string().min(1)).optional(),
     messages: z.array(zMessage).optional(),
     options: z.record(z.string(), z.unknown()).optional(),
-    stream: z.boolean().optional()
+    stream: z.boolean().optional(),
+    think: z.boolean().optional()
 });
 
 const ollama_defs = {
@@ -100,6 +101,12 @@ const ollama_defs = {
                 },
                 stream: payload.stream ?? false
             };
+
+            // Only add think parameter if we want to disable thinking
+            // Adding any think parameter (true or false) seems to disable thinking
+            if (payload.think === false) {
+                requestBody.think = false;
+            }
 
             let ollamaResponse;
 

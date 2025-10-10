@@ -22,7 +22,20 @@ export const event_type_config = {
             if(res.is_own_action){
                 res.print = true
             }
+            if(res.details && event.details.success === false){
+                res.print_style = 'error'
+            }
             return res
+        }
+    },
+    'narration': {
+        debug_log: false,
+        handle(event) {
+            return event_response({
+                message: event.details.text,
+                print: true,
+                print_style: 'narration'
+            });
         }
     },
 };
@@ -44,6 +57,14 @@ export const system_event_config = {
         handle(event){
             console.log(`Our player eid is ${event.details.eid}`);
             state.player_eid = event.details.eid
+        }
+    },
+    'ai_narrative':{
+        handle(event){
+            return event_response({
+                print:true,
+                print_style:'narration'
+            })
         }
     }
 }
