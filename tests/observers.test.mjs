@@ -8,7 +8,7 @@ import {createWorld, addEntity, addComponent, hasComponent, query, set, IsA, Wil
 import {CreateComponent, CreateRelation} from '../game_framework/create_component.mjs'
 import {z} from 'zod'
 import {expect} from 'chai'
-import {get_components_for_entity, get_all_components_and_relations, get_relation_data_for_entity} from '../examples/text_adventure_logic/helpers.mjs'
+import {get_components_for_entity, get_all_components_and_relations, get_relation_data_for_entity, get_all_components_for_entity, entity_has_relation, get_all_relations_for_entity, collect_all_entity_targets, get_relation_targets_with_data} from '../examples/text_adventure_logic/helpers.mjs'
 
 describe('CreateComponent and CreateRelation Observer Tests', function() {
     let world
@@ -494,6 +494,138 @@ describe('CreateComponent and CreateRelation Observer Tests', function() {
             expect(room3Relations).to.have.property('Has')
             expect(room3Relations.ConnectsTo[room2.toString()]).to.deep.equal({direction: "west"})
             expect(room3Relations.Has[landmark1.toString()]).to.deep.equal({})
+        })
+    })
+
+    describe('Utility Functions Tests', function() {
+        it('get_all_components_for_entity should return all components for an entity', function() {
+            const room = createRoom("Test Room", "A room for testing components")
+            
+            const components = get_all_components_for_entity(world, room)
+            
+            expect(components).to.have.property('Room')
+            expect(components).to.have.property('Name')
+            expect(components).to.have.property('Description')
+            expect(components.Name.value).to.equal('Test Room')
+            expect(components.Description.value).to.equal('A room for testing components')
+        })
+
+        it('entity_has_relation should correctly detect if entity has a relation', function() {
+            const {Has, ConnectsTo} = world.relations
+            const room1 = createRoom("Room 1", "First room")
+            const room2 = createRoom("Room 2", "Second room")
+            const item = addEntity(world)
+            
+            // Initially no relations
+            expect(entity_has_relation(world, room1, Has)).to.be.false
+            expect(entity_has_relation(world, room1, ConnectsTo)).to.be.false
+            
+            // Add Has relation
+            addComponent(world, room1, Has(item))
+            expect(entity_has_relation(world, room1, Has)).to.be.true
+            expect(entity_has_relation(world, room1, ConnectsTo)).to.be.false
+            
+            // Add ConnectsTo relation
+            connectRooms(room1, room2, "north", "south")
+            expect(entity_has_relation(world, room1, Has)).to.be.true
+            expect(entity_has_relation(world, room1, ConnectsTo)).to.be.true
+        })
+
+        it('get_all_relations_for_entity should return all relations for an entity', function() {
+            const {Has, ConnectsTo} = world.relations
+            const room1 = createRoom("Multi Relation Room", "Room with multiple relations")
+            const room2 = createRoom("Connected Room", "Connected room")
+            const item = addEntity(world)
+            
+            // Initially no relations
+            const emptyRelations = get_all_relations_for_entity(world, room1)
+            expect(Object.keys(emptyRelations)).to.have.length(0)
+            
+            // Add relations
+            addComponent(world, room1, Has(item))
+            connectRooms(room1, room2, "east", "west")
+            
+            const relations = get_all_relations_for_entity(world, room1)
+            expect(relations).to.have.property('Has')
+            expect(relations).to.have.property('ConnectsTo')
+            expect(Object.keys(relations)).to.have.length(2)
+        })
+
+        it('collect_all_entity_targets should return all possible entity IDs', function() {
+            const {Has, ConnectsTo} = world.relations
+            const room1 = createRoom("Room 1", "First room")
+            const room2 = createRoom("Room 2", "Second room")
+            const item1 = addEntity(world)
+            const item2 = addEntity(world)
+            
+            // Add various relations
+            addComponent(world, room1, Has(item1))
+            addComponent(world, room2, Has(item2))
+            connectRooms(room1, room2, "north", "south")
+            
+            const allTargets = collect_all_entity_targets(world)
+            
+            // Should include all entities that appear in relations
+            expect(allTargets.has(room1)).to.be.true
+            expect(allTargets.has(room2)).to.be.true
+            
+            // Should also include buffer entities
+            expect(allTargets.size).to.be.greaterThan(2)
+        })
+
+        it('get_relation_targets_with_data should return targets and their data', function() {
+            const {Has, ConnectsTo} = world.relations
+            const room1 = createRoom("Source Room", "Room with connections")
+            const room2 = createRoom("Target Room 1", "First target")
+            const room3 = createRoom("Target Room 2", "Second target")
+            const item = addEntity(world)
+            
+            // Add relations
+            addComponent(world, room1, Has(item))
+            connectRooms(room1, room2, "north", "south")
+            connectRooms(room1, room3, "east", "west")
+            
+            // Get all possible targets
+            const allTargets = collect_all_entity_targets(world)
+            
+            // Test Has relation (no data)
+            const hasTargets = get_relation_targets_with_data(world, room1, Has, allTargets)
+            expect(hasTargets).to.have.property(item.toString())
+            expect(hasTargets[item.toString()]).to.deep.equal({})
+            
+            // Test ConnectsTo relation (with direction data)
+            const connectsTargets = get_relation_targets_with_data(world, room1, ConnectsTo, allTargets)
+            expect(connectsTargets).to.have.property(room2.toString())
+            expect(connectsTargets).to.have.property(room3.toString())
+            expect(connectsTargets[room2.toString()]).to.deep.equal({direction: "north"})
+            expect(connectsTargets[room3.toString()]).to.deep.equal({direction: "east"})
+        })
+
+        it('utility functions should work together seamlessly', function() {
+            const {Has, ConnectsTo} = world.relations
+            const room = createRoom("Integration Room", "Room for integration testing")
+            const connectedRoom = createRoom("Connected Room", "Connected to integration room")
+            const item1 = addEntity(world)
+            const item2 = addEntity(world)
+            
+            // Add relations
+            addComponent(world, room, Has(item1))
+            addComponent(world, room, Has(item2))
+            connectRooms(room, connectedRoom, "south", "north")
+            
+            // Test that utility functions produce same results as main functions
+            const directComponents = get_all_components_for_entity(world, room)
+            const directRelations = get_all_relations_for_entity(world, room)
+            const combinedDirect = { ...directComponents, ...directRelations }
+            
+            const mainFunctionResult = get_all_components_and_relations(world, room)
+            
+            // Should produce identical results
+            expect(mainFunctionResult.Room).to.deep.equal(combinedDirect.Room)
+            expect(mainFunctionResult.Name).to.deep.equal(combinedDirect.Name) 
+            expect(mainFunctionResult.Description).to.deep.equal(combinedDirect.Description)
+            expect(mainFunctionResult.Has).to.equal(combinedDirect.Has)
+            expect(mainFunctionResult.ConnectsTo).to.equal(combinedDirect.ConnectsTo)
         })
     })
 })
