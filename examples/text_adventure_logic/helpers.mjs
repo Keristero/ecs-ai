@@ -31,18 +31,8 @@ export function get_all_components_for_entity(world, eid) {
  * @returns {boolean} True if entity has this relation type
  */
 export function entity_has_relation(world, eid, relation) {
-    try {
-        const entitiesWithRelation = query(world, [relation(Wildcard)])
-        return entitiesWithRelation.includes(eid)
-    } catch (e) {
-        // Fallback to getRelationTargets approach
-        try {
-            const targets = getRelationTargets(world, eid, relation)
-            return targets && targets.length > 0
-        } catch (e2) {
-            return false
-        }
-    }
+    const entitiesWithRelation = query(world, [relation(Wildcard)])
+    return entitiesWithRelation.includes(eid)
 }
 
 /**
