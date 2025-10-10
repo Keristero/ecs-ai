@@ -1,7 +1,8 @@
 import { create_event } from './EventQueue.mjs'
+import { z } from 'zod'
 
 export const action_argument_schemas = {
-    actor_eid: {type: 'number', description: 'The entity ID of the actor performing the action'},
+    actor_eid: z.number().int().nonnegative().describe("Entity ID")
 }
 
 export class Action {
@@ -9,15 +10,15 @@ export class Action {
         this.name = name
         this.aliases = aliases
         this.description = description
-        this.arguments = {
-            actor_eid: action_argument_schemas.actor_eid
-        }
+        this.argument_schema = z.object({
+            actor_eid: action_argument_schemas.actor_eid,
+            ...argument_schemas
+        })
     }
     async execute(game,args) {
         console.log(`Executing action: ${this.name}`)
+        let valid_event = this.argument_schema.parse(args)
         //console.log(`Validating arguments against schema...`)
-        for(let arg_name in args) {
-        }
         return await this.func(game,args)
     }
     create_event(actor_eid, message, more_details = {}) {

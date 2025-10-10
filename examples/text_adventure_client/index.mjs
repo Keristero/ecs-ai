@@ -2,18 +2,52 @@ import * as core from './core.mjs';
 
 const elements = {
     log: document.getElementById('log'),
-    terminalInput: document.getElementById('terminal-input'),
+    terminal_input: document.getElementById('terminal-input'),
     autocomplete: document.getElementById('autocomplete'),
-    roomContent: document.getElementById('room-content'),
-    statusContent: document.getElementById('status-content'),
-    inventoryContent: document.getElementById('inventory-content')
+    room_content: document.getElementById('room-content'),
+    status_content: document.getElementById('status-content'),
+    inventory_content: document.getElementById('inventory-content')
 };
 
-let ws = null;
-let autocompleteIndex = -1;
-let currentSuggestions = [];
+const refresh_functions = {
+    room_content: (state) => {
+        elements.room_content.innerHTML = '';
+        
+        // Display Enemies
+        let enemies = core.filter_and_format_entities(state.entities, ['Name','Enemy'], 'value');
+        if(Object.keys(enemies).length > 0){
+            let enemyHeader = document.createElement('div');
+            enemyHeader.className = 'category-name';
+            enemyHeader.textContent = 'Enemies:';
+            elements.room_content.appendChild(enemyHeader);
+            
+            for(let eid in enemies){
+                let div = document.createElement('div');
+                div.textContent = `- ${enemies[eid]}`;
+                elements.room_content.appendChild(div);
+            }
+        }
+        
+        // Display Items
+        let items = core.filter_and_format_entities(state.entities, ['Name','Item'], 'value');
+        if(Object.keys(items).length > 0){
+            let itemHeader = document.createElement('div');
+            itemHeader.className = 'category-name';
+            itemHeader.textContent = 'Items:';
+            elements.room_content.appendChild(itemHeader);
+            
+            for(let eid in items){
+                let div = document.createElement('div');
+                div.textContent = `- ${items[eid]}`;
+                elements.room_content.appendChild(div);
+            }
+        }
+    }
+}
 
-const connectWebSocket = () => {
+let ws = null;
+
+const connect_websocket = () => {
     // Connect to API server as configured in mise.toml (port 3000)
     const wsUrl = 'ws://127.0.0.1:6060';
     
@@ -22,13 +56,13 @@ const connectWebSocket = () => {
     
     ws.onopen = () => {
         console.log('WebSocket connection established');
-        logMessage('Connected to server', 'success');
+        print_to_log('Connected to server', 'success');
     };
     
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            handleServerEvent(data);
+            handle_server_event(data);
         } catch (error) {
             console.error('Error handling message:', error);
         }
@@ -36,50 +70,42 @@ const connectWebSocket = () => {
     
     ws.onerror = (error) => {
         console.error('WebSocket error:', error);
-        logMessage('Connection error', 'error');
+        print_to_log('Connection error', 'error');
     };
     
     ws.onclose = () => {
-        logMessage('Disconnected from server', 'error');
-        setTimeout(connectWebSocket, 3000);
+        print_to_log('Disconnected from server', 'error');
+        setTimeout(connect_websocket, 3000);
     };
 };
 
-const handleServerEvent = (message) => {
-    // Handle both wrapped and unwrapped events
-    let event = message;
-    
-    // If it's wrapped in a 'type' envelope, handle accordingly
-    if (message.type === 'event' && message.data) {
-        event = message.data;
-    } else if (message.type === 'round_state' && message.data) {
-        // Round state is handled directly
-        event = message;
+const handle_server_event = (event) => {
+    const result = core.handle_event(event);
+
+    if(!result){
+        return
     }
-    
-    const config = core.handleEvent(event);
-    
-    if (config?.logMessage) {
-        const extractedMessage = core.extractMessage(event);
-        if (extractedMessage) {
-            logMessage(extractedMessage, config.messageColor);
+
+    if(result.print){
+        print_to_log(event.message, result.print_style);
+    }
+
+    if(result.refresh_ui_sections){
+        for(const section of result.refresh_ui_sections){
+            refresh_functions[section](core.state);
         }
-    }
-    
-    if (config?.updateUI) {
-        config.updateUI.forEach(updateUIElement);
     }
 };
 
-const logMessage = (message, type = 'info') => {
+const print_to_log = (message, type = 'info') => {
     const div = document.createElement('div');
     div.className = `log-message log-${type}`;
-    div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    div.textContent = `${message}`;
     elements.log.appendChild(div);
     elements.log.scrollTop = elements.log.scrollHeight;
 };
 
-const handleInput = (e) => {
+const handle_input = (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
         submit_action();
@@ -87,22 +113,21 @@ const handleInput = (e) => {
 };
 
 const submit_action = () => {
-    const input = elements.terminalInput.value.trim()
-    const action = core.handleCommand(input, core.state.actionSchemas);
+    const input = elements.terminal_input.value.trim()
+    const action = core.handle_command(input, core.state.actionSchemas);
     
     if (!action) {
-        logMessage('Invalid command', 'error');
-        elements.terminalInput.value = '';
+        print_to_log('Invalid command', 'error');
+        elements.terminal_input.value = '';
         return;
     }
     
-    elements.terminalInput.value = '';
-
+    elements.terminal_input.value = '';
     ws.send(JSON.stringify(action))
 };
 
 // Initialize
-elements.terminalInput.addEventListener('keydown', handleInput);
+elements.terminal_input.addEventListener('keydown', handle_input);
 //elements.terminalInput.addEventListener('blur', () => setTimeout(hideAutocomplete, 200));
 
-connectWebSocket();
+connect_websocket();

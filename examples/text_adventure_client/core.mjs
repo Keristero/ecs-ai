@@ -1,39 +1,28 @@
 // Configuration for which events should be logged and which UI elements they update
 export const event_type_config = {
     'action_schemas': {
-        log_event: true,
+        debug_log: true,
         handle(event) {
             state.actions = event.details;
             console.log('Action schemas updated:', state.actions);
         }
     },
     'system': {
-        log_event: true,
+        debug_log: true,
         handle(event) {
-            if(system_event_config[event.name]) {
-                const config = system_event_config[event.name];
-                if (config && config.handle) {
-                    config.handle(event);
-                }
-            }else{
-                console.warn('Unhandled event name:', event.name);
-            }
+            let res = generic_config_handler(event,system_event_config,'name');
+            return res
         }
     },
     'action': {
-        log_event: true,
+        debug_log: true,
         handle(event) {
-            if(action_event_config[event.name]) {
-                const config = action_event_config[event.name];
-                if (config.print_own_actions && event.details.actor_eid === state.player_eid) {
-                    console.log('You perform the action:', event.name);
-                }
-                if (config && config.handle) {
-                    config.handle(event);
-                }
-            }else{
-                console.warn('Unhandled event name:', event.name);
+            let res = generic_config_handler(event,action_event_config,'name');
+            res.is_own_action = event.details.actor_eid === state.player_eid
+            if(res.is_own_action){
+                res.print = true
             }
+            return res
         }
     },
 };
@@ -41,7 +30,10 @@ export const event_type_config = {
 export const system_event_config = {
     'game_start':{
         handle(event){
-
+            return event_response({
+                print:true,
+                print_style:'success'
+            })
         }
     },
     'actor_turn_change':{
@@ -58,8 +50,13 @@ export const system_event_config = {
 
 export const action_event_config = {
     'look':{
-        print_own_actions: true,
         handle(event){
+            for(let eid in event.details.entities){
+                state.entities[eid] = event.details.entities[eid]
+            }
+            return event_response({
+                refresh_ui_sections:['room_content']
+            })
         }
     }
 }
@@ -81,28 +78,43 @@ export const statusBarConfig = [
 
 // Client state
 export const state = {
-    entities: new Map(),
+    entities: {},
     actions: {},
-    player_eid: null
+    player_eid: null,
 };
 
-// Handle incoming event
-export const handleEvent = (event) => {
-    if(event_type_config[event.type]) {
-        const config = event_type_config[event.type];
-        if(config.logMessage) {
+function event_response(args){
+    let defaults = {
+        message:"DEFAULT MESSAGE",
+        print:false,
+        print_style:'info',
+        refresh_ui_sections:[]
+    }
+    Object.assign(defaults,args)
+    return defaults
+}
+
+function generic_config_handler(event,config,discriminator='type'){
+    if(config[event[discriminator]]) {
+        const c = config[event[discriminator]];
+        if(c.debug_log) {
             console.log(event)
         }
-        if (config && config.handle) {
-            config.handle(event);
+        if (c && c.handle) {
+            return c.handle(event);
         }
     }else{
-        console.log('Unhandled event type:', event.type);
+        console.log(`Unhandled event ${discriminator}:`, event[discriminator]);
     }
+}
+
+// Handle incoming event
+export const handle_event = (event) => {
+    return generic_config_handler(event,event_type_config,'type');
 };
 
 
-export const handleCommand = (command) => {
+export const handle_command = (command) => {
     console.log(command)
     let parsed_command = command.split(' ')[0]
     let args = {
@@ -119,4 +131,37 @@ export const handleCommand = (command) => {
         //now we would validate the arguments
         return message
     }
+}
+
+export const filter_entities_by_component = function(entities, componentKeys){
+    let out = {}
+    for(let eid in entities){
+        // Check if entity has ALL specified components
+        let hasAllComponents = true;
+        for(let componentKey of componentKeys){
+            if(!entities[eid][componentKey]){
+                hasAllComponents = false;
+                break;
+            }
+        }
+        if(hasAllComponents){
+            out[eid] = entities[eid]
+        }
+    }
+    return out
+}
+
+export const filter_and_format_entities = function(entities, componentKeys, componentProperty){
+    let filtered = filter_entities_by_component(entities, componentKeys);
+    let out = {}
+    for(let eid in filtered){
+        // Find the first component that has the requested property
+        for(let componentKey of componentKeys){
+            if(filtered[eid][componentKey] && filtered[eid][componentKey][componentProperty] != undefined){
+                out[eid] = filtered[eid][componentKey][componentProperty]
+                break; // Stop after finding the first valid property
+            }
+        }
+    }
+    return out
 }

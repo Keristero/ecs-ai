@@ -19,3 +19,21 @@ export function get_components_for_entity(world, eid, component_names=[]) {
     
     return results
 }
+
+export function get_all_components_and_relations(world,eid){
+    const results = {}
+    for(const name in world.components){
+        let component = world.components[name]
+        if(hasComponent(world,eid,component)){
+            results[name] = getComponent(world,eid,component)
+        }
+    }
+    for(const name in world.relations){
+        let relation = world.relations[name]
+        if(hasComponent(world,eid,relation)){
+            results[name] = getComponent(world,eid,relation)
+        }
+    }
+    console.log(JSON.stringify(results,null,2))
+    return results
+}

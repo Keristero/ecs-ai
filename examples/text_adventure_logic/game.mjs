@@ -3,6 +3,7 @@ import {setup_world} from "./setup_world.mjs"
 import {EventQueue} from "./EventQueue.mjs"
 import {WebSocketManager} from "./WebSocketManager.mjs"
 import { create_event, EVENT_NAMES} from "./EventQueue.mjs"
+import { sleep } from "./helpers.mjs"
 
 const game = await initialize_game()
 

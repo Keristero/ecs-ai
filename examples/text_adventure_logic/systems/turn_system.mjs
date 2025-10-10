@@ -11,7 +11,10 @@ turn_system.func = async function ({ game, event }) {
         return this.increment_round(game)
     }
     if(event.type === 'action' && event.details.actor_eid == this.current_turn_eid){
-        await(sleep(1))
+        //throttle actions if no players are connected
+        if(game.wss){
+            await sleep(1000)
+        }
         return this.increment_turn(game)
     }
     return null

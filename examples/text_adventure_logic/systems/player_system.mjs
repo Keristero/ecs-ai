@@ -43,8 +43,8 @@ player_system.func = async function ({ game, event }) {
 
             client.on('close', async () => {
                 //handle player disconnect
-
-                this.player_eids.delete(ws)
+                logger.info("player disconnected");
+                this.player_eids.delete(client)
             });
 
             client.on('error', (error) => {
