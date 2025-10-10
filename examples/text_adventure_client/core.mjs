@@ -72,12 +72,22 @@ export const system_event_config = {
 export const action_event_config = {
     'look':{
         handle(event){
-            for(let eid in event.details.entities){
-                state.entities[eid] = event.details.entities[eid]
+            // Only update state if this is the current player's action
+            if(event.details.actor_eid === state.player_eid){
+                // Clear existing entities first to avoid showing entities from other rooms
+                state.entities = {}
+                
+                // Add entities from the current room
+                for(let eid in event.details.entities){
+                    state.entities[eid] = event.details.entities[eid]
+                }
+                
+                return event_response({
+                    refresh_ui_sections:['room_content']
+                })
             }
-            return event_response({
-                refresh_ui_sections:['room_content']
-            })
+            // Don't refresh UI for other players' look actions
+            return event_response({})
         }
     }
 }

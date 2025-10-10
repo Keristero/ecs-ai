@@ -46,7 +46,6 @@ function setup_world(game) {
     addComponent(world, room2, Has(item2))
     
     // Create enemies using prefabs - instantiate from prefab templates
-    /*
     const enemy1 = addEntity(world)
     addComponent(world, enemy1, IsA(prefabs.goblin))
     addComponent(world, room2, Has(enemy1))
@@ -66,7 +65,6 @@ function setup_world(game) {
     const sword2 = addEntity(world)
     addComponent(world, sword2, IsA(prefabs.rusty_sword))
     addComponent(world, enemy3, Has(sword2))
-    **/
     
     // Note: Player entity is no longer created here. It will be spawned dynamically
     // by the `player_spawn_system` in response to a websocket `player_connect` event.
