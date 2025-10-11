@@ -71,51 +71,66 @@ export const system_event_config = {
                 print_style:'narration'
             })
         }
+    },
+    'look_result':{
+        handle(event){
+            // Only update state if this involves the current player
+            if(event.details.actor_eid === state.player_eid){
+                // Clear existing entities first to avoid showing entities from other rooms
+                state.entities = {}
+                
+                // Add entities from the current room
+                console.log('Look result event - updating entities:', event.details.entities);
+                for(let eid in event.details.entities){
+                    state.entities[eid] = event.details.entities[eid]
+                }
+                console.log('Updated state.entities:', state.entities);
+                 
+                // Update player inventory from the player entity's Has relations
+                const playerEntity = event.details.entities[state.player_eid];
+                if (playerEntity && playerEntity.relations && playerEntity.relations.Has) {
+                    state.inventory = {};
+                    console.log('Updating inventory from player Has relations:', playerEntity.relations.Has);
+                    
+                    // Add each item the player has to inventory state
+                    for (let itemEid in playerEntity.relations.Has) {
+                        // Find the item in the entities data
+                        if (event.details.entities[itemEid]) {
+                            state.inventory[itemEid] = event.details.entities[itemEid];
+                        }
+                    }
+                    console.log('Updated inventory state:', state.inventory);
+                }
+                
+                return event_response({
+                    print: true,
+                    print_style: 'info',
+                    refresh_ui_sections:['room_content', 'inventory']
+                })
+            }
+            // Don't refresh UI for other players' look results
+            return event_response({})
+        }
     }
 }
 
 export const action_event_config = {
     'look':{
         handle(event){
-            // Only update state if this is the current player's action
-            if(event.details.actor_eid === state.player_eid){
-                // Clear existing entities first to avoid showing entities from other rooms
-                state.entities = {}
-                
-                // Add entities from the current room
-                console.log('Look event - updating entities:', event.details.entities);
-                for(let eid in event.details.entities){
-                    state.entities[eid] = event.details.entities[eid]
-                }
-                console.log('Updated state.entities:', state.entities);
-                
-                return event_response({
-                    refresh_ui_sections:['room_content']
-                })
-            }
-            // Don't refresh UI for other players' look actions
-            return event_response({})
+            // Look actions just print the message - state updates handled by look_result system
+            return event_response({
+                print: true,
+                print_style: 'info'
+            })
         }
     },
     'pickup':{
         handle(event){
-            // Only update for the current player's actions
+            // Only respond to the current player's actions
             if(event.details.actor_eid === state.player_eid){
-                if(event.details.success) {
-                    // Add item to inventory (move from room entities to inventory)
-                    const target_eid = event.details.target_item;
-                    if(state.entities[target_eid]) {
-                        state.inventory[target_eid] = state.entities[target_eid];
-                        delete state.entities[target_eid];
-                        console.log('Updated inventory:', state.inventory);
-                        console.log('Updated entities:', state.entities);
-                    }
-                }
-                
                 return event_response({
                     print: true,
-                    print_style: event.details.success ? 'success' : 'error',
-                    refresh_ui_sections: event.details.success ? ['room_content', 'inventory'] : []
+                    print_style: event.details.success ? 'success' : 'error'
                 })
             }
             return event_response({})

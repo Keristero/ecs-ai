@@ -129,9 +129,7 @@ export function parseActionInput(input, actionSchema, entities) {
     
     // Use entityValidation to determine argument names (same fix as autocomplete)
     const entityValidation = actionSchema.options?.entityValidation || {};
-    const argNames = Object.keys(entityValidation).filter(name => 
-        name !== 'actor_eid' && name !== 'room_eid'
-    );
+    const argNames = Object.keys(entityValidation)
     
     // Map argument values to schema fields
     for (let i = 0; i < Math.min(argValues.length, argNames.length); i++) {
@@ -139,7 +137,7 @@ export function parseActionInput(input, actionSchema, entities) {
         const argValue = argValues[i];
         
         // Check if this is an entity ID field (by name pattern)
-        if (argName.endsWith('_eid') && argName !== 'actor_eid' && argName !== 'room_eid') {
+        if (argName.endsWith('_eid')) {
             
             // Try to parse as number first (direct entity ID)
             const numericValue = parseInt(argValue);
