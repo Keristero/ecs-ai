@@ -5,6 +5,11 @@ export const event_type_config = {
         handle(event) {
             state.actions = event.details;
             console.log('Action schemas updated:', state.actions);
+            
+            // Initialize autocomplete system after actions are loaded
+            if (window.initializeAutocompleteWhenReady) {
+                window.initializeAutocompleteWhenReady();
+            }
         }
     },
     'system': {
@@ -78,9 +83,11 @@ export const action_event_config = {
                 state.entities = {}
                 
                 // Add entities from the current room
+                console.log('Look event - updating entities:', event.details.entities);
                 for(let eid in event.details.entities){
                     state.entities[eid] = event.details.entities[eid]
                 }
+                console.log('Updated state.entities:', state.entities);
                 
                 return event_response({
                     refresh_ui_sections:['room_content']
@@ -146,22 +153,67 @@ export const handle_event = (event) => {
 
 
 export const handle_command = (command) => {
-    console.log(command)
-    let parsed_command = command.split(' ')[0]
-    let args = {
-        actor_eid: state.player_eid
-    }
-    if(state.actions[parsed_command]){
-        console.log('Recognised input:', parsed_command)
-        let action = state.actions[parsed_command]
-        let message = {
-            name: action.name,
-            type: 'action',
-            args: args
+    console.log('Processing command:', command);
+    
+    const parts = command.trim().split(/\s+/);
+    const actionName = parts[0];
+    
+    // Find the action (by name or alias)
+    let action = null;
+    let actionKey = null;
+    
+    // Look for exact key match first
+    if (state.actions[actionName]) {
+        action = state.actions[actionName];
+        actionKey = actionName;
+    } else {
+        // Look for action by name or alias
+        for (const [key, act] of Object.entries(state.actions)) {
+            if (act.name === actionName || (act.aliases && act.aliases.includes(actionName))) {
+                action = act;
+                actionKey = key;
+                break;
+            }
         }
-        //now we would validate the arguments
-        return message
     }
+    
+    if (!action) {
+        console.log('Unrecognized action:', actionName);
+        return null;
+    }
+    
+    console.log('Recognized action:', action.name);
+    
+    // Parse arguments using entity helpers
+    const { parseActionInput } = window.entityHelpers || {};
+    if (!parseActionInput) {
+        console.error('Entity helpers not loaded');
+        return null;
+    }
+    
+    const parsed = parseActionInput(command, action, state.entities);
+    if (!parsed) {
+        console.log('Failed to parse action arguments');
+        return null;
+    }
+    
+    // Build final arguments
+    const args = {
+        actor_eid: state.player_eid,
+        ...parsed
+    };
+    
+    // Remove the action name from args
+    delete args.actionName;
+    
+    const message = {
+        name: action.name,
+        type: 'action',
+        args: args
+    };
+    
+    console.log('Sending action:', message);
+    return message;
 }
 
 export const filter_entities_by_component = function(entities, componentKeys){

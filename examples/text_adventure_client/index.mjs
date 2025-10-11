@@ -1,4 +1,9 @@
 import * as core from './core.mjs';
+import AutocompleteSystem from './autocomplete.mjs';
+import entityHelpers from './entity_helpers.mjs';
+
+// Make entity helpers available globally for core.mjs
+window.entityHelpers = entityHelpers;
 
 const elements = {
     log: document.getElementById('log'),
@@ -46,6 +51,7 @@ const refresh_functions = {
 }
 
 let ws = null;
+let autocomplete = null;
 
 const connect_websocket = () => {
     // Connect to API server as configured in mise.toml (port 3000)
@@ -114,7 +120,7 @@ const handle_input = (e) => {
 
 const submit_action = () => {
     const input = elements.terminal_input.value.trim()
-    const action = core.handle_command(input, core.state.actionSchemas);
+    const action = core.handle_command(input);
     
     if (!action) {
         print_to_log('Invalid command', 'error');
@@ -126,8 +132,29 @@ const submit_action = () => {
     ws.send(JSON.stringify(action))
 };
 
+const initialize_autocomplete = () => {
+    if (!autocomplete && elements.terminal_input && elements.autocomplete && 
+        core.state.actions && Object.keys(core.state.actions).length > 0) {
+        autocomplete = new AutocompleteSystem(elements, core.state);
+        console.log('Autocomplete system initialized');
+        return true;
+    }
+    return false;
+};
+
+// Make this available for core.mjs to call when actions are loaded
+window.initializeAutocompleteWhenReady = () => {
+    initialize_autocomplete();
+};
+
 // Initialize
 elements.terminal_input.addEventListener('keydown', handle_input);
-//elements.terminalInput.addEventListener('blur', () => setTimeout(hideAutocomplete, 200));
 
 connect_websocket();
+
+// Try to initialize autocomplete when DOM is ready (but it might wait for actions)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialize_autocomplete);
+} else {
+    initialize_autocomplete();
+}
