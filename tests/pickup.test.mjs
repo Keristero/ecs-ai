@@ -76,11 +76,10 @@ describe('Pickup Action Tests', function() {
         let playerItems = getRelationTargets(world, player, Has)
         expect(playerItems).to.not.include(potion)
         
-        // Execute pickup action
-        const result = await pickup.func(game, {
+        // Execute pickup action using the execute method to test validation
+        const result = await pickup.execute(game, {
             actor_eid: player,
-            room_eid: room,
-            item_name: "HealthPotion"
+            target_eid: potion
         })
         
         // Verify the action was successful
@@ -95,24 +94,27 @@ describe('Pickup Action Tests', function() {
         expect(playerItems).to.include(potion)
     })
 
-    it('should fail when item does not exist in room', async function() {
-        const room = createRoom("Empty Room", "An empty test room")
+    it('should fail when item is not in room', async function() {
+        const room = createRoom("Test Room", "A test room")
         const player = createPlayer("TestPlayer")
         const {Has} = world.relations
         
-        // Place player in room (but no items)
+        // Place player in room
         addComponent(world, room, Has(player))
         
-        // Try to pick up non-existent item
-        const result = await pickup.func(game, {
+        // Create item but don't put it in the room
+        const potion = createItemInRoom('health_potion', room)
+        removeComponent(world, room, Has(potion)) // Remove from room
+        
+        // Try to pick up item that's not in room (should fail validation)
+        const result = await pickup.execute(game, {
             actor_eid: player,
-            room_eid: room,
-            item_name: "NonExistentItem"
+            target_eid: potion
         })
         
-        // Verify the action failed appropriately
+        // Verify the action failed due to validation
         expect(result.details.success).to.be.false
-        expect(result.message).to.include('don\'t see a "NonExistentItem"')
+        expect(result.message).to.include('must be a target of Has')
     })
 
     it('should allow picking up multiple items with same name (different entities)', async function() {
@@ -128,18 +130,16 @@ describe('Pickup Action Tests', function() {
         const sword2 = createItemInRoom('rusty_sword', room)
         
         // Pick up first sword
-        const result1 = await pickup.func(game, {
+        const result1 = await pickup.execute(game, {
             actor_eid: player,
-            room_eid: room,
-            item_name: "RustySword"
+            target_eid: sword1
         })
         expect(result1.details.success).to.be.true
         
         // Pick up second sword (should succeed - different entity)
-        const result2 = await pickup.func(game, {
+        const result2 = await pickup.execute(game, {
             actor_eid: player,
-            room_eid: room,
-            item_name: "RustySword"
+            target_eid: sword2
         })
         expect(result2.details.success).to.be.true
         
@@ -154,7 +154,7 @@ describe('Pickup Action Tests', function() {
         expect(roomItems).to.not.include(sword2)
     })
 
-    it('should be case insensitive for item names', async function() {
+    it('should work with entity IDs directly', async function() {
         const room = createRoom("Test Room", "A test room")
         const player = createPlayer("TestPlayer")
         const {Has} = world.relations
@@ -165,11 +165,10 @@ describe('Pickup Action Tests', function() {
         // Create a health potion in the room
         const potion = createItemInRoom('health_potion', room)
         
-        // Try different case variations
-        const result = await pickup.func(game, {
+        // Test with entity ID (case sensitivity no longer applies)
+        const result = await pickup.execute(game, {
             actor_eid: player,
-            room_eid: room,
-            item_name: "healthpotion"  // lowercase
+            target_eid: potion
         })
         
         expect(result.details.success).to.be.true
@@ -177,5 +176,27 @@ describe('Pickup Action Tests', function() {
         // Verify item was transferred
         const playerItems = getRelationTargets(world, player, Has)
         expect(playerItems).to.include(potion)
+    })
+
+    it('should fail when target entity is not an item', async function() {
+        const room = createRoom("Test Room", "A test room")
+        const player = createPlayer("TestPlayer")
+        const {Has} = world.relations
+        
+        // Place player in room
+        addComponent(world, room, Has(player))
+        
+        // Try to pick up another player (not an item)
+        const otherPlayer = createPlayer("OtherPlayer")
+        addComponent(world, room, Has(otherPlayer))
+        
+        const result = await pickup.execute(game, {
+            actor_eid: player,
+            target_eid: otherPlayer
+        })
+        
+        // Verify the action failed due to validation
+        expect(result.details.success).to.be.false
+        expect(result.message).to.include('must have component Item')
     })
 })

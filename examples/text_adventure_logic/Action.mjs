@@ -4,7 +4,8 @@ import { query } from 'bitecs'
 
 export const action_argument_schemas = {
     actor_eid: z.number().int().nonnegative().describe("Entity ID"),
-    room_eid: z.number().int().nonnegative().nullable().describe("Room Entity ID (null if not in a room)")
+    room_eid: z.number().int().nonnegative().nullable().describe("Room Entity ID (null if not in a room)"),
+    target_eid: z.number().int().nonnegative().describe("Target Entity ID")
 }
 
 export class Action {
@@ -14,6 +15,7 @@ export class Action {
         this.description = description
         this.options = {
             includeActorRoom: false,
+            entityValidation: {}, // Map of argument names to required components/relations
             ...options
         }
         
@@ -40,6 +42,9 @@ export class Action {
             
             // Validate arguments against schema
             this.argument_schema.parse(args)
+            
+            // Validate entity requirements
+            await this._validateEntityRequirements(game, args)
             
             // Execute the action and ensure it has a success flag
             const result = await this.func(game, args)
@@ -80,6 +85,65 @@ export class Action {
         return {
             ...args,
             room_eid
+        }
+    }
+    
+    async _validateEntityRequirements(game, args) {
+        const { world } = game
+        const { hasComponent, getRelationTargets } = await import('bitecs')
+        
+        for (const [argName, requirements] of Object.entries(this.options.entityValidation)) {
+            const entityId = args[argName]
+            if (entityId === undefined || entityId === null) continue
+            
+            // Validate required components
+            if (requirements.components) {
+                for (const componentName of requirements.components) {
+                    const component = world.components[componentName]
+                    if (!component) {
+                        throw new Error(`Component ${componentName} not found in world`)
+                    }
+                    if (!hasComponent(world, entityId, component)) {
+                        throw new Error(`Entity ${entityId} must have component ${componentName}`)
+                    }
+                }
+            }
+            
+            // Validate required relations
+            if (requirements.relations) {
+                for (const relationName of requirements.relations) {
+                    const relation = world.relations[relationName]
+                    if (!relation) {
+                        throw new Error(`Relation ${relationName} not found in world`)
+                    }
+                    const targets = getRelationTargets(world, entityId, relation)
+                    if (targets.length === 0) {
+                        throw new Error(`Entity ${entityId} must have relation ${relationName}`)
+                    }
+                }
+            }
+            
+            // Validate that entity must be a target of specific relations
+            if (requirements.isTargetOf) {
+                for (const relationSpec of requirements.isTargetOf) {
+                    const { relation: relationName, source } = relationSpec
+                    const relation = world.relations[relationName]
+                    if (!relation) {
+                        throw new Error(`Relation ${relationName} not found in world`)
+                    }
+                    
+                    let sourceEntityId = source
+                    if (typeof source === 'string') {
+                        // Source is another argument name
+                        sourceEntityId = args[source]
+                    }
+                    
+                    const targets = getRelationTargets(world, sourceEntityId, relation)
+                    if (!targets.includes(entityId)) {
+                        throw new Error(`Entity ${entityId} must be a target of ${relationName} from entity ${sourceEntityId}`)
+                    }
+                }
+            }
         }
     }
     create_event(actor_eid, message, more_details = {}) {
