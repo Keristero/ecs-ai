@@ -96,6 +96,30 @@ export const action_event_config = {
             // Don't refresh UI for other players' look actions
             return event_response({})
         }
+    },
+    'pickup':{
+        handle(event){
+            // Only update for the current player's actions
+            if(event.details.actor_eid === state.player_eid){
+                if(event.details.success) {
+                    // Add item to inventory (move from room entities to inventory)
+                    const target_eid = event.details.target_item;
+                    if(state.entities[target_eid]) {
+                        state.inventory[target_eid] = state.entities[target_eid];
+                        delete state.entities[target_eid];
+                        console.log('Updated inventory:', state.inventory);
+                        console.log('Updated entities:', state.entities);
+                    }
+                }
+                
+                return event_response({
+                    print: true,
+                    print_style: event.details.success ? 'success' : 'error',
+                    refresh_ui_sections: event.details.success ? ['room_content', 'inventory'] : []
+                })
+            }
+            return event_response({})
+        }
     }
 }
 
@@ -119,6 +143,7 @@ export const state = {
     entities: {},
     actions: {},
     player_eid: null,
+    inventory: {}, // Track player's inventory items
 };
 
 function event_response(args){
@@ -247,4 +272,13 @@ export const filter_and_format_entities = function(entities, componentKeys, comp
         }
     }
     return out
+}
+
+// Inventory helper functions
+export const get_inventory_items = function(){
+    return filter_entities_by_component(state.inventory, ['Item']);
+}
+
+export const get_inventory_item_names = function(){
+    return filter_and_format_entities(state.inventory, ['Name'], 'value');
 }

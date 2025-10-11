@@ -47,6 +47,35 @@ const refresh_functions = {
                 elements.room_content.appendChild(div);
             }
         }
+    },
+    inventory: (state) => {
+        // Check if inventory element exists, if not create it or skip
+        if (!elements.inventory_content) {
+            console.log('No inventory UI element found - inventory update skipped');
+            return;
+        }
+        
+        elements.inventory_content.innerHTML = '';
+        
+        // Display inventory items
+        let items = core.filter_and_format_entities(state.inventory, ['Name','Item'], 'value');
+        if(Object.keys(items).length > 0){
+            let inventoryHeader = document.createElement('div');
+            inventoryHeader.className = 'category-name';
+            inventoryHeader.textContent = 'Inventory:';
+            elements.inventory_content.appendChild(inventoryHeader);
+            
+            for(let eid in items){
+                let div = document.createElement('div');
+                div.textContent = `- ${items[eid]}`;
+                elements.inventory_content.appendChild(div);
+            }
+        } else {
+            let emptyDiv = document.createElement('div');
+            emptyDiv.textContent = 'Inventory is empty';
+            emptyDiv.className = 'empty-message';
+            elements.inventory_content.appendChild(emptyDiv);
+        }
     }
 }
 

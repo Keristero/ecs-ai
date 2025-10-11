@@ -7,7 +7,7 @@ import Logger from '../../../logger.mjs'
 const logger = new Logger('Player System', 'cyan')
 
 const player_system = new System('player_system', 10) // High priority - handle player setup/turns early
-player_system.event_whitelist = [EVENT_NAMES.GAME_START,EVENT_NAMES.ACTOR_TURN_CHANGE]
+player_system.event_whitelist = [EVENT_NAMES.GAME_START,EVENT_NAMES.ACTOR_TURN_CHANGE,EVENT_NAMES.PICKUP_ITEM]
 
 player_system.player_eids = new Map()
 
@@ -73,10 +73,26 @@ player_system.func = async function ({ game, event }) {
                 //check if its an action
                 if(deserialized.type == SOCKET_MESSAGE_TYPES.ACTION){
                     let {actor_eid} = deserialized.args
+                    logger.info(`Action check: actor_eid=${actor_eid}, this.player_turn=${this.player_turn}, match=${actor_eid == this.player_turn}`);
+                    logger.info(`Action exists: ${deserialized.name} -> ${!!game.actions[deserialized.name]}`);
                     if(actor_eid == this.player_turn){
                         let action = game.actions[deserialized.name]
-                        let res = await action.execute(game, deserialized.args)
-                        this.player_action = res
+                        if(action) {
+                            logger.info(`Executing action: ${deserialized.name}`);
+                            let res = await action.execute(game, deserialized.args)
+                            this.player_action = res
+                            logger.info(`Action result:`, res);
+                            
+                            // Send the action result back to the client
+                            if(res && client.readyState === client.OPEN) {
+                                client.send(JSON.stringify(res));
+                                logger.info(`Sent action result to client`);
+                            }
+                        } else {
+                            logger.error(`Action not found: ${deserialized.name}`);
+                        }
+                    } else {
+                        logger.warn(`Not player's turn. Expected: ${this.player_turn}, Got: ${actor_eid}`);
                     }
                 }
             });
