@@ -30,30 +30,9 @@ function CreateRelation(options,schema=z.object({})){
             ...options
         })
         
-        // Store reference to original relation for bitECS compatibility
-        const originalRelation = data
-        
-        // Wrap the relation to track store creation while preserving bitECS compatibility
-        data = new Proxy(originalRelation, {
-            apply(target, thisArg, args) {
-                const targetEid = args[0] // The target entity ID
-                const store = Reflect.apply(target, thisArg, args)
-                
-                // Store the mapping for enableObservers
-                if(targetEid !== undefined && !createdStores.has(targetEid)) {
-                    createdStores.set(targetEid, store)
-                }
-                
-                return store
-            },
-            get(target, prop) {
-                // Preserve all bitECS properties and methods
-                return Reflect.get(target, prop)
-            }
-        })
-        
-        // Expose the stores map for observer setup
+        // Store reference to the original relation and expose stores map directly
         data._stores = createdStores
+        data._originalRelation = data // Keep reference to the unwrapped relation
     }else{
         data = createRelation({...options})
     }
@@ -115,30 +94,29 @@ function CreateRelation(options,schema=z.object({})){
                 setupObserversForStore(store)
             }
             
-            // Wrap the relation to add observers to newly created stores
-            const originalRelation = data
-            const wrappedRelation = function(targetEid) {
-                const store = originalRelation(targetEid)
-                return setupObserversForStore(store)
-            }
+            // Instead of wrapping the function, we'll intercept store creation at the bitECS level
+            // by hooking into the relation's store creation mechanism
+            const originalRelation = data._originalRelation || data
             
-            // Preserve all bitECS properties and prototype chain for full compatibility
-            Object.setPrototypeOf(wrappedRelation, Object.getPrototypeOf(originalRelation))
+            // Override the relation's store function to add observers automatically
+            const originalCreateStore = originalRelation[Object.getOwnPropertySymbols(originalRelation)
+                .find(s => s.toString().includes('relationData'))]?.initStore
             
-            // Copy all enumerable and non-enumerable properties
-            const descriptors = Object.getOwnPropertyDescriptors(originalRelation)
-            for(const key in descriptors) {
-                if(key !== 'length' && key !== 'name' && key !== 'prototype') {
-                    Object.defineProperty(wrappedRelation, key, descriptors[key])
+            if (originalCreateStore) {
+                const relationData = originalRelation[Object.getOwnPropertySymbols(originalRelation)
+                    .find(s => s.toString().includes('relationData'))]
+                
+                // Wrap the store creation to automatically add observers
+                const originalInitStore = relationData.initStore
+                relationData.initStore = () => {
+                    const store = originalInitStore()
+                    setupObserversForStore(store)
+                    return store
                 }
             }
             
-            // Ensure bitECS can recognize this as the same relation type
-            wrappedRelation._bitECSRelation = true
-            wrappedRelation._original = originalRelation
-            
-            // Update the relation in metadata
-            relation_metadata.data = wrappedRelation
+            // The relation function itself remains unchanged for bitECS compatibility
+            // relation_metadata.data stays as the original unwrapped relation
         }
     }
     

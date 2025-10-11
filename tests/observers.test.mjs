@@ -8,7 +8,7 @@ import {createWorld, addEntity, addComponent, hasComponent, query, set, IsA, Wil
 import {CreateComponent, CreateRelation} from '../game_framework/create_component.mjs'
 import {z} from 'zod'
 import {expect} from 'chai'
-import {get_components_for_entity, get_all_components_and_relations, get_relation_data_for_entity, get_all_components_for_entity, entity_has_relation, get_all_relations_for_entity, collect_all_entity_targets, get_relation_targets_with_data} from '../examples/text_adventure_logic/helpers.mjs'
+import {get_components_for_entity, get_all_components_and_relations, get_relation_data_for_entity, get_all_components_for_entity, entity_has_relation, get_all_relations_for_entity, get_relation_targets_with_data} from '../examples/text_adventure_logic/helpers.mjs'
 
 describe('CreateComponent and CreateRelation Observer Tests', function() {
     let world
@@ -551,7 +551,7 @@ describe('CreateComponent and CreateRelation Observer Tests', function() {
             expect(Object.keys(relations)).to.have.length(2)
         })
 
-        it('collect_all_entity_targets should return all possible entity IDs', function() {
+        it('get_relation_targets_with_data should work without pre-collected targets', function() {
             const {Has, ConnectsTo} = world.relations
             const room1 = createRoom("Room 1", "First room")
             const room2 = createRoom("Room 2", "Second room")
@@ -563,14 +563,12 @@ describe('CreateComponent and CreateRelation Observer Tests', function() {
             addComponent(world, room2, Has(item2))
             connectRooms(room1, room2, "north", "south")
             
-            const allTargets = collect_all_entity_targets(world)
+            // Test that get_relation_targets_with_data works directly
+            const hasTargets = get_relation_targets_with_data(world, room1, Has)
+            expect(hasTargets).to.have.property(item1.toString())
             
-            // Should include all entities that appear in relations
-            expect(allTargets.has(room1)).to.be.true
-            expect(allTargets.has(room2)).to.be.true
-            
-            // Should also include buffer entities
-            expect(allTargets.size).to.be.greaterThan(2)
+            const connectsTargets = get_relation_targets_with_data(world, room1, ConnectsTo)
+            expect(connectsTargets).to.have.property(room2.toString())
         })
 
         it('get_relation_targets_with_data should return targets and their data', function() {
@@ -585,16 +583,13 @@ describe('CreateComponent and CreateRelation Observer Tests', function() {
             connectRooms(room1, room2, "north", "south")
             connectRooms(room1, room3, "east", "west")
             
-            // Get all possible targets
-            const allTargets = collect_all_entity_targets(world)
-            
-            // Test Has relation (no data)
-            const hasTargets = get_relation_targets_with_data(world, room1, Has, allTargets)
+            // Test Has relation (no data) - using new signature without allTargets
+            const hasTargets = get_relation_targets_with_data(world, room1, Has)
             expect(hasTargets).to.have.property(item.toString())
             expect(hasTargets[item.toString()]).to.deep.equal({})
             
-            // Test ConnectsTo relation (with direction data)
-            const connectsTargets = get_relation_targets_with_data(world, room1, ConnectsTo, allTargets)
+            // Test ConnectsTo relation (with direction data) - using new signature
+            const connectsTargets = get_relation_targets_with_data(world, room1, ConnectsTo)
             expect(connectsTargets).to.have.property(room2.toString())
             expect(connectsTargets).to.have.property(room3.toString())
             expect(connectsTargets[room2.toString()]).to.deep.equal({direction: "north"})

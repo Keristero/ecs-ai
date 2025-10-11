@@ -1,4 +1,4 @@
-import {addEntity, addComponent, hasComponent, getComponent, getRelationTargets, query, Wildcard} from 'bitecs'
+import {addEntity, addComponent, hasComponent, getComponent, getRelationTargets, query, Wildcard, Or} from 'bitecs'
 
 export function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -24,15 +24,11 @@ export function get_all_components_for_entity(world, eid) {
 }
 
 /**
- * Check if an entity has any relations of a specific type
- * @param {Object} world - The ECS world
- * @param {number} eid - Entity ID
- * @param {Function} relation - The relation to check
- * @returns {boolean} True if entity has this relation type
+ * Check if an entity has a specific relation with any targets
  */
-export function entity_has_relation(world, eid, relation) {
-    const entitiesWithRelation = query(world, [relation(Wildcard)])
-    return entitiesWithRelation.includes(eid)
+export function entity_has_relation(world, source_eid, relation) {
+    const targets = getRelationTargets(world, source_eid, relation);
+    return targets.length > 0;
 }
 
 /**
@@ -55,48 +51,22 @@ export function get_all_relations_for_entity(world, eid) {
 }
 
 /**
- * Collect all possible entity IDs from relation queries
- * @param {Object} world - The ECS world
- * @returns {Set<number>} Set of all entity IDs that appear in relations
+ * Get entities that are targets of a relation for a given source entity with their relation data
  */
-export function collect_all_entity_targets(world) {
-    const allPossibleTargets = new Set()
+export function get_relation_targets_with_data(world, source_eid, relation) {
+    const targets = {};
+    const target_entities = getRelationTargets(world, source_eid, relation);
     
-    for (const relation_name in world.relations) {
-        const entities = query(world, [world.relations[relation_name](Wildcard)])
-        entities.forEach(e => allPossibleTargets.add(e))
-    }
-    
-    // Add buffer for recently created entities
-    const maxKnownEntity = allPossibleTargets.size > 0 ? Math.max(...allPossibleTargets) : 0
-    for (let i = maxKnownEntity + 1; i <= maxKnownEntity + 10; i++) {
-        allPossibleTargets.add(i)
-    }
-    
-    return allPossibleTargets
-}
-
-/**
- * Get all target entities for a specific relation from a source entity
- * @param {Object} world - The ECS world
- * @param {number} eid - Source entity ID
- * @param {Function} relation - The relation function
- * @param {Set<number>} possible_targets - Set of possible target entities to check
- * @returns {Object} Map of target entity IDs to their relation data
- */
-export function get_relation_targets_with_data(world, eid, relation, possible_targets) {
-    const targets = {}
-    
-    for (const potential_target of possible_targets) {
-        if (potential_target === eid) continue
-        
-        if (hasComponent(world, eid, relation(potential_target))) {
-            const relation_data = getComponent(world, eid, relation(potential_target))
-            targets[potential_target] = relation_data || {}
+    for (const target_entity of target_entities) {
+        // Use getComponent to trigger observers and get transformed data
+        const relationComponent = relation(target_entity);
+        const data = getComponent(world, source_eid, relationComponent);
+        if (data !== undefined) {
+            targets[target_entity] = data;
         }
     }
     
-    return targets
+    return targets;
 }
 
 /**
@@ -127,6 +97,29 @@ export function get_all_components_and_relations(world, eid) {
 }
 
 /**
+ * Get all entities that are sources of a given relation (using Wildcard pattern)
+ */
+export function get_relation_sources(world, relation) {
+    return query(world, [relation(Wildcard)]);
+}
+
+/**
+ * Get all entities that are targets of a given relation (using Wildcard pattern)
+ */
+export function get_relation_targets_all(world, relation) {
+    return query(world, [Wildcard(relation)]);
+}
+
+/**
+ * Get relation data for a specific entity pair
+ */
+export function get_relation_data_for_pair(world, source_eid, target_eid, relation) {
+    // Use getComponent to trigger observers and get transformed data
+    const relationComponent = relation(target_eid);
+    return getComponent(world, source_eid, relationComponent);
+}
+
+/**
  * Get relation data for an entity in the format: "RelationName": {targetEid: {relationData}}
  * Uses pure bitECS patterns with query and standard component access
  * @param {Object} world - The ECS world
@@ -142,17 +135,14 @@ export function get_relation_data_for_entity(world, eid, relation_names = []) {
         relation_names : 
         Object.keys(world.relations)
     
-    // Collect all possible targets once for efficiency
-    const allPossibleTargets = collect_all_entity_targets(world)
-    
     for (const relation_name of relations_to_check) {
         const relation = world.relations[relation_name]
         if (!relation) continue
         
         // Check if our entity has this relation using utility function
         if (entity_has_relation(world, eid, relation)) {
-            // Get all targets and their data for this relation
-            results[relation_name] = get_relation_targets_with_data(world, eid, relation, allPossibleTargets)
+            // Get all targets and their data for this relation using bitECS queries
+            results[relation_name] = get_relation_targets_with_data(world, eid, relation)
         }
     }
     
