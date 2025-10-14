@@ -79,15 +79,21 @@ export const system_event_config = {
                  
                 // Update player inventory from the player entity's Has relations
                 const playerEntity = event.details.entities[state.player_eid];
-                if (playerEntity && playerEntity.relations && playerEntity.relations.Has) {
+                if (playerEntity) {
+                    // Always clear inventory first, then rebuild from current Has relations
                     state.inventory = {};
-                    console.log('Updating inventory from player Has relations:', playerEntity.relations.Has);
                     
-                    // Player's Has relations now contain complete entity data (depth=2)
-                    for (let itemEid in playerEntity.relations.Has) {
-                        const itemData = playerEntity.relations.Has[itemEid];
-                        // The item data is now embedded in the relation (thanks to depth=2)
-                        state.inventory[itemEid] = itemData;
+                    if (playerEntity.relations && playerEntity.relations.Has) {
+                        console.log('Updating inventory from player Has relations:', playerEntity.relations.Has);
+                        
+                        // Player's Has relations now contain complete entity data (depth=2)
+                        for (let itemEid in playerEntity.relations.Has) {
+                            const itemData = playerEntity.relations.Has[itemEid];
+                            // The item data is now embedded in the relation (thanks to depth=2)
+                            state.inventory[itemEid] = itemData;
+                        }
+                    } else {
+                        console.log('Player has no Has relations - inventory cleared');
                     }
                     console.log('Updated inventory state:', state.inventory);
                 }
@@ -275,7 +281,7 @@ export const handle_command = (command) => {
         return null;
     }
     
-    const parsed = parseActionInput(command, action, state.entities);
+    const parsed = parseActionInput(command, action, state.entities, state.inventory);
     if (!parsed) {
         console.log('Failed to parse action arguments');
         return null;

@@ -31,14 +31,17 @@ export function getEntityIdByName(entities, name) {
 /**
  * Get all entities that match validation requirements
  */
-export function getValidEntitiesForArgument(entities, argumentName, validation) {
+export function getValidEntitiesForArgument(entities, inventory, argumentName, validation, currentArgs = {}) {
     if (!validation) {
         return Object.keys(entities);
     }
 
     const validEntityIds = [];
     
-    for (const [entityId, entityData] of Object.entries(entities)) {
+    // Combine entities and inventory for validation
+    const allEntities = { ...entities, ...inventory };
+    
+    for (const [entityId, entityData] of Object.entries(allEntities)) {
         let isValid = true;
         
         // Check required components
@@ -52,10 +55,23 @@ export function getValidEntitiesForArgument(entities, argumentName, validation) 
         }
         
         // Check isTargetOf relations
-        // Since all entities in the client's entity list came from the look command,
-        // they are already in the current room, so this check passes
         if (isValid && validation.isTargetOf) {
-            // Simplified client-side check - assume entities are in room
+            for (const relationCheck of validation.isTargetOf) {
+                if (relationCheck.relation === 'Has' && relationCheck.source === 'actor_eid') {
+                    // This entity should be in the player's inventory
+                    if (!inventory[entityId]) {
+                        isValid = false;
+                        break;
+                    }
+                } else if (relationCheck.relation === 'Has' && relationCheck.source === 'room_eid') {
+                    // This entity should be in the room (not in inventory)
+                    if (!entities[entityId] || inventory[entityId]) {
+                        isValid = false;
+                        break;
+                    }
+                }
+                // Add more relation checks as needed
+            }
         }
         
         // Check other relation types (simplified for client-side)
@@ -74,9 +90,9 @@ export function getValidEntitiesForArgument(entities, argumentName, validation) 
 /**
  * Generate autocomplete suggestions for an entity argument
  */
-export function getEntitySuggestions(entities, validation, argName, currentArgs = {}, inputText = '') {
+export function getEntitySuggestions(entities, inventory, validation, argName, currentArgs = {}, inputText = '') {
     // Check if we have any entities to work with
-    if (!entities || Object.keys(entities).length === 0) {
+    if ((!entities || Object.keys(entities).length === 0) && (!inventory || Object.keys(inventory).length === 0)) {
         return [{
             eid: null,
             displayName: '(perform "look" command first)',
@@ -86,13 +102,16 @@ export function getEntitySuggestions(entities, validation, argName, currentArgs 
     
     // Extract the validation rules for this specific argument
     const argValidation = validation?.[argName];
-    const validEids = getValidEntitiesForArgument(entities, argName, argValidation);
+    const validEids = getValidEntitiesForArgument(entities, inventory, argName, argValidation, currentArgs);
     const suggestions = [];
     
     const lowerInput = inputText.toLowerCase();
     
+    // Combine entities and inventory for suggestions
+    const allEntities = { ...entities, ...inventory };
+    
     for (const eid of validEids) {
-        const entity = entities[eid];
+        const entity = allEntities[eid];
         if (!entity) continue;
         
         const displayName = getEntityDisplayName(entity, eid);
@@ -116,7 +135,7 @@ export function getEntitySuggestions(entities, validation, argName, currentArgs 
 /**
  * Parse user input and extract argument values, converting names to entity IDs where needed
  */
-export function parseActionInput(input, actionSchema, entities) {
+export function parseActionInput(input, actionSchema, entities, inventory = {}) {
     const parts = input.trim().split(/\s+/);
     const actionName = parts[0];
     const argValues = parts.slice(1);
@@ -131,6 +150,9 @@ export function parseActionInput(input, actionSchema, entities) {
     const entityValidation = actionSchema.options?.entityValidation || {};
     const argNames = Object.keys(entityValidation)
     
+    // Combine entities and inventory for name lookup
+    const allEntities = { ...entities, ...inventory };
+    
     // Map argument values to schema fields
     for (let i = 0; i < Math.min(argValues.length, argNames.length); i++) {
         const argName = argNames[i];
@@ -144,8 +166,8 @@ export function parseActionInput(input, actionSchema, entities) {
             if (!isNaN(numericValue)) {
                 parsed[argName] = numericValue;
             } else {
-                // Try to find entity by name
-                const entityId = getEntityIdByName(entities, argValue);
+                // Try to find entity by name in both entities and inventory
+                const entityId = getEntityIdByName(allEntities, argValue);
                 if (entityId !== null) {
                     parsed[argName] = entityId;
                 } else {

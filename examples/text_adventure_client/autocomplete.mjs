@@ -179,6 +179,7 @@ export class AutocompleteSystem {
             // This is an entity argument, get entity suggestions
             const entitySuggestions = getEntitySuggestions(
                 this.state.entities,
+                this.state.inventory,
                 action.options?.entityValidation,
                 currentArgName,
                 currentArgs,
