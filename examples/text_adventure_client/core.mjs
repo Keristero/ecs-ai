@@ -83,12 +83,13 @@ export const system_event_config = {
                     // Always clear inventory first, then rebuild from current Has relations
                     state.inventory = {};
                     
-                    if (playerEntity.relations && playerEntity.relations.Has) {
-                        console.log('Updating inventory from player Has relations:', playerEntity.relations.Has);
+                    // Check for Has relation directly on the entity (flattened structure)
+                    if (playerEntity.Has) {
+                        console.log('Updating inventory from player Has relations:', playerEntity.Has);
                         
                         // Player's Has relations now contain complete entity data (depth=2)
-                        for (let itemEid in playerEntity.relations.Has) {
-                            const itemData = playerEntity.relations.Has[itemEid];
+                        for (let itemEid in playerEntity.Has) {
+                            const itemData = playerEntity.Has[itemEid];
                             // The item data is now embedded in the relation (thanks to depth=2)
                             state.inventory[itemEid] = itemData;
                         }

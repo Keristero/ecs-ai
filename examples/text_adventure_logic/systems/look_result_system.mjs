@@ -21,15 +21,12 @@ look_result_system.func = async ({ game, event }) => {
     let entitiesInRoom = getRelationTargets(world, room_eid, Has)
     console.log(`[look_result_system] Room ${room_eid} contains entities:`, entitiesInRoom)
     let current_entities = {}
-    let allReferencedEntities = new Set()
     
     // Process entities currently in the room (only physical room entities)
     for(let eid of entitiesInRoom){
         try {
             if(getComponent(world, eid, Name)){
-                const entityData = get_all_components_and_relations(world, eid)
-                // Use depth=2 to include complete data for related entities within relations
-                entityData.relations = get_relation_data_for_entity(world, eid, [], 2)
+                const entityData = get_all_components_and_relations(world, eid, 2)
                 current_entities[eid] = entityData
             }
         } catch (error) {

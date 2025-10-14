@@ -74,9 +74,14 @@ export function getValidEntitiesForArgument(entities, inventory, argumentName, v
             }
         }
         
-        // Check other relation types (simplified for client-side)
+        // Check other relation types - relations are now flattened into the entity data
         if (isValid && validation.relations) {
-            // Simplified client-side check - assume relations are valid
+            for (const relationCheck of validation.relations) {
+                if (!entityData[relationCheck.relation]) {
+                    isValid = false;
+                    break;
+                }
+            }
         }
         
         if (isValid) {

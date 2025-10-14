@@ -69,19 +69,15 @@ player_system.func = async function ({ game, event }) {
 
             client.on('message', async (data) => {
                 let deserialized = JSON.parse(data)
-                logger.info(`Received message:`,deserialized);
                 //check if its an action
                 if(deserialized.type == SOCKET_MESSAGE_TYPES.ACTION){
                     let {actor_eid} = deserialized.args
-                    logger.info(`Action check: actor_eid=${actor_eid}, this.player_turn=${this.player_turn}, match=${actor_eid == this.player_turn}`);
-                    logger.info(`Action exists: ${deserialized.name} -> ${!!game.actions[deserialized.name]}`);
                     if(actor_eid == this.player_turn){
                         let action = game.actions[deserialized.name]
                         if(action) {
                             logger.info(`Executing action: ${deserialized.name}`);
                             let res = await action.execute(game, deserialized.args)
                             this.player_action = res
-                            logger.info(`Action result:`, res);
                             
                             // Don't send action result directly - it's already broadcast via EventQueue
                             // The WebSocketManager broadcasts all events to all clients
