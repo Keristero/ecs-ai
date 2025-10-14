@@ -83,11 +83,8 @@ player_system.func = async function ({ game, event }) {
                             this.player_action = res
                             logger.info(`Action result:`, res);
                             
-                            // Send the action result back to the client
-                            if(res && client.readyState === client.OPEN) {
-                                client.send(JSON.stringify(res));
-                                logger.info(`Sent action result to client`);
-                            }
+                            // Don't send action result directly - it's already broadcast via EventQueue
+                            // The WebSocketManager broadcasts all events to all clients
                         } else {
                             logger.error(`Action not found: ${deserialized.name}`);
                         }

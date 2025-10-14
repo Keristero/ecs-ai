@@ -23,8 +23,8 @@ export const event_type_config = {
         debug_log: true,
         handle(event) {
             let res = generic_config_handler(event,action_event_config,'name');
-            res.is_own_action = event.details.actor_eid === state.player_eid
-            if(res.is_own_action){
+            let is_own_action = event.details.actor_eid === state.player_eid
+            if(is_own_action){
                 res.print = true
             }
             if(res.details && event.details.success === false){
@@ -32,17 +32,7 @@ export const event_type_config = {
             }
             return res
         }
-    },
-    'narration': {
-        debug_log: false,
-        handle(event) {
-            return event_response({
-                message: event.details.text,
-                print: true,
-                print_style: 'narration'
-            });
-        }
-    },
+    }
 };
 
 export const system_event_config = {
@@ -119,7 +109,6 @@ export const action_event_config = {
         handle(event){
             // Look actions just print the message - state updates handled by look_result system
             return event_response({
-                print: true,
                 print_style: 'info'
             })
         }

@@ -12,14 +12,14 @@ export function sleep(ms) {
  */
 export function get_all_components_for_entity(world, eid) {
     const results = {}
-    
+   
     for (const name in world.components) {
         const component = world.components[name]
         if (hasComponent(world, eid, component)) {
             results[name] = getComponent(world, eid, component)
         }
     }
-    
+   
     return results
 }
 
@@ -32,31 +32,12 @@ export function entity_has_relation(world, source_eid, relation) {
 }
 
 /**
- * Get all relations that an entity has (just the names and references)
- * @param {Object} world - The ECS world
- * @param {number} eid - Entity ID
- * @returns {Object} Map of relation names to their references
- */
-export function get_all_relations_for_entity(world, eid) {
-    const results = {}
-    
-    for (const name in world.relations) {
-        const relation = world.relations[name]
-        if (entity_has_relation(world, eid, relation)) {
-            results[name] = relation
-        }
-    }
-    
-    return results
-}
-
-/**
  * Get entities that are targets of a relation for a given source entity with their relation data
  */
 export function get_relation_targets_with_data(world, source_eid, relation) {
     const targets = {};
     const target_entities = getRelationTargets(world, source_eid, relation);
-    
+   
     for (const target_entity of target_entities) {
         // Use getComponent to trigger observers and get transformed data
         const relationComponent = relation(target_entity);
@@ -65,7 +46,7 @@ export function get_relation_targets_with_data(world, source_eid, relation) {
             targets[target_entity] = data;
         }
     }
-    
+   
     return targets;
 }
 
@@ -76,22 +57,22 @@ export function get_relation_targets_with_data(world, source_eid, relation) {
  */
 export function get_components_for_entity(world, eid, component_names=[]) {
     const results = {}
-    
+   
     for (const component_name of component_names) {
         let component = world.components[component_name]
         results[component_name] = getComponent(world, eid, component)
     }
-    
+   
     return results
 }
 
-export function get_all_components_and_relations(world, eid) {
+export function get_all_components_and_relations(world, eid, depth = 1) {
     // Get all components using utility function
     const components = get_all_components_for_entity(world, eid)
-    
-    // Get all relations using utility function
-    const relations = get_all_relations_for_entity(world, eid)
-    
+   
+    // Get all relations using utility function with depth parameter
+    const relations = get_relation_data_for_entity(world, eid, [], depth)
+   
     // Combine components and relations
     return { ...components, ...relations }
 }
@@ -125,26 +106,56 @@ export function get_relation_data_for_pair(world, source_eid, target_eid, relati
  * @param {Object} world - The ECS world
  * @param {number} eid - Entity ID to get relations for
  * @param {string[]} relation_names - Optional array of relation names to filter by
+ * @param {number} depth - Optional depth parameter (default 1). At depth 1, only the specified entity. At depth 2+, includes related entities' components and relations
+ * @param {Set} visited - Internal parameter to prevent infinite recursion
  * @returns {Object} Map of relation names to their data
  */
-export function get_relation_data_for_entity(world, eid, relation_names = []) {
+export function get_relation_data_for_entity(world, eid, relation_names = [], depth = 1, visited = new Set()) {
     const results = {}
-    
+   
+    // Prevent infinite recursion
+    if (visited.has(eid)) {
+        return results
+    }
+    visited.add(eid)
+   
     // If no specific relations requested, use all relations
-    const relations_to_check = relation_names.length > 0 ? 
-        relation_names : 
+    const relations_to_check = relation_names.length > 0 ?
+        relation_names :
         Object.keys(world.relations)
-    
+   
     for (const relation_name of relations_to_check) {
         const relation = world.relations[relation_name]
         if (!relation) continue
-        
+       
         // Check if our entity has this relation using utility function
         if (entity_has_relation(world, eid, relation)) {
             // Get all targets and their data for this relation using bitECS queries
-            results[relation_name] = get_relation_targets_with_data(world, eid, relation)
+            const targets_with_data = get_relation_targets_with_data(world, eid, relation)
+           
+            // If depth > 1, recursively get components and relations for each target entity
+            if (depth > 1) {
+                const enhanced_targets = {}
+                for (const [target_eid, relation_data] of Object.entries(targets_with_data)) {
+                    const target_eid_num = parseInt(target_eid)
+                   
+                    // Get components and relations for the target entity
+                    const target_components = get_all_components_for_entity(world, target_eid_num)
+                    const target_relations = get_relation_data_for_entity(world, target_eid_num, relation_names, depth - 1, new Set(visited))
+                   
+                    // Flatten everything together: relation_data + components + relations
+                    enhanced_targets[target_eid] = {
+                        ...relation_data,
+                        ...target_components,
+                        ...target_relations
+                    }
+                }
+                results[relation_name] = enhanced_targets
+            } else {
+                results[relation_name] = targets_with_data
+            }
         }
     }
-    
+   
     return results
 }

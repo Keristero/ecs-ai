@@ -1,3 +1,4 @@
+import { getComponent } from 'bitecs'
 import {Action} from '../Action.mjs'
 import {get_all_components_and_relations} from '../helpers.mjs'
 
@@ -10,8 +11,9 @@ look.func = async (game,args)=>{
     // Get room information for the message
     const roomComponents = get_all_components_and_relations(world, room_eid)
     let room_name = roomComponents.Name ? roomComponents.Name.value : "Unknown Room"
+    let actor_name = getComponent(world, actor_eid, Name).value
 
-    return look.create_event(actor_eid, `You look around ${room_name}.`, {
+    return look.create_event(actor_eid, `${actor_name} looks around ${room_name}.`, {
         success: true,
         room_eid
     })

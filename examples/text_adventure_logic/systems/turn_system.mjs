@@ -6,7 +6,6 @@ import { sleep } from '../helpers.mjs'
 const turn_system = new System('turn_system', 200) // Lowest priority - manage turn order
 
 turn_system.func = async function ({ game, event }) {
-    console.log("Turn system handling event:", event);
     if(event.name === EVENT_NAMES.GAME_START){
         return await this.increment_round(game)
     }
