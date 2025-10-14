@@ -4,7 +4,7 @@ import { get_all_components_and_relations, get_relation_data_for_entity } from '
 import { getRelationTargets, getComponent } from 'bitecs'
 
 const room_update_system = new System('room_update_system', 100) // Run after other systems
-room_update_system.event_whitelist = [EVENT_NAMES.LOOK, EVENT_NAMES.PICKUP, EVENT_NAMES.DROP] // Listen to actions that change room state
+room_update_system.event_whitelist = [EVENT_NAMES.LOOK, EVENT_NAMES.PICKUP, EVENT_NAMES.DROP, EVENT_NAMES.MOVE] // Listen to actions that change room state
 
 room_update_system.func = async ({ game, event }) => {
     // Only process successful actions (whitelist already filters event names)
@@ -15,7 +15,20 @@ room_update_system.func = async ({ game, event }) => {
     const { world } = game
     const { Name } = world.components
     const { Has } = world.relations
-    const { room_eid, actor_eid } = event.details
+    
+    // Handle different event structures
+    let { room_eid, actor_eid } = event.details
+    
+    // For move events, use to_room_eid as the current room after movement
+    if (event.name === EVENT_NAMES.MOVE && event.details.to_room_eid) {
+        room_eid = event.details.to_room_eid
+    }
+    
+    // If room_eid is still undefined, skip this event
+    if (!room_eid) {
+        console.log(`[room_update_system] Skipping event ${event.name} - no room_eid found`)
+        return null
+    }
 
     // Get room information including all entities and connections
     const roomData = get_all_components_and_relations(world, room_eid, 3)

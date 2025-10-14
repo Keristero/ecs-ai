@@ -74,8 +74,11 @@ export const system_event_config = {
                 state.room_data = event.details.room_data;
                 // Extract entities from room_data.Has for compatibility
                 state.room = event.details.room_data.Has || {};
+                // Track current room ID for autocomplete
+                state.current_room_eid = event.details.room_eid;
                 console.log('Updated state.room_data:', state.room_data);
                 console.log('Updated state.room (from Has):', state.room);
+                console.log('Current room EID:', state.current_room_eid);
                 
                 return event_response({
                     print: true,
@@ -84,6 +87,16 @@ export const system_event_config = {
                 })
             }
             return event_response({})
+        }
+    },
+    'movement_update': {
+        debug_log: true,
+        handle(event) {
+            // Movement update is just informational, no UI changes needed
+            return event_response({
+                print: true,
+                print_style: 'info'
+            })
         }
     }
 }
@@ -167,6 +180,7 @@ export const state = {
     room_data: {},
     actions: {},
     player_eid: null,
+    current_room_eid: null,
 };
 
 // Simple function to traverse state tree to find related entities

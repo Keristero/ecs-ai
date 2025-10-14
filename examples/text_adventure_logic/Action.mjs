@@ -144,6 +144,51 @@ export class Action {
                     }
                 }
             }
+            
+            // Validate relation values (for string/value arguments)
+            if (requirements.relationValues) {
+                for (const valueSpec of requirements.relationValues) {
+                    const { relation: relationName, source, valueField } = valueSpec
+                    const relation = world.relations[relationName]
+                    if (!relation) {
+                        throw new Error(`Relation ${relationName} not found in world`)
+                    }
+                    
+                    let sourceEntityId = source
+                    if (typeof source === 'string') {
+                        // Source is another argument name
+                        sourceEntityId = args[source]
+                    }
+                    
+                    // Get the argument value to validate
+                    const argValue = args[argName]
+                    
+                    // Get relation data to check if the value is valid
+                    try {
+                        const { get_relation_data_for_entity } = await import('./helpers.mjs')
+                        const relationData = get_relation_data_for_entity(world, sourceEntityId, [relationName])
+                        
+                        const validValues = []
+                        if (relationData[relationName]) {
+                            for (const [entityId, data] of Object.entries(relationData[relationName])) {
+                                if (data[valueField]) {
+                                    validValues.push(data[valueField])
+                                }
+                            }
+                        }
+                        
+                        if (!validValues.includes(argValue)) {
+                            const validOptions = validValues.join(', ')
+                            throw new Error(`Invalid ${argName} '${argValue}'. Valid options: ${validOptions}`)
+                        }
+                    } catch (error) {
+                        if (error.message.startsWith('Invalid')) {
+                            throw error
+                        }
+                        throw new Error(`Failed to validate ${argName}: ${error.message}`)
+                    }
+                }
+            }
         }
     }
     create_event(actor_eid, message, more_details = {}) {

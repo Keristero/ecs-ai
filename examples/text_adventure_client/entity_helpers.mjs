@@ -93,6 +93,42 @@ export function getValidEntitiesForArgument(entities, inventory, argumentName, v
 }
 
 /**
+ * Get valid relation values for a string argument (e.g., directions)
+ */
+export function getValidRelationValues(entities, inventory, argumentName, validation, currentArgs = {}) {
+    if (!validation || !validation.relationValues) {
+        return [];
+    }
+
+    const validValues = [];
+    
+    for (const valueSpec of validation.relationValues) {
+        const { relation: relationName, source, valueField } = valueSpec;
+        
+        let sourceEntityId = source;
+        if (typeof source === 'string') {
+            // Source is another argument name
+            sourceEntityId = currentArgs[source];
+        }
+        
+        // Find the source entity in room entities or inventory
+        const allEntities = { ...entities, ...inventory };
+        const sourceEntity = allEntities[sourceEntityId];
+        
+        if (sourceEntity && sourceEntity[relationName]) {
+            // Extract values from the relation data
+            for (const [entityId, data] of Object.entries(sourceEntity[relationName])) {
+                if (data[valueField]) {
+                    validValues.push(data[valueField]);
+                }
+            }
+        }
+    }
+    
+    return validValues;
+}
+
+/**
  * Generate autocomplete suggestions for an entity argument
  */
 export function getEntitySuggestions(entities, inventory, validation, argName, currentArgs = {}, inputText = '') {
@@ -135,6 +171,43 @@ export function getEntitySuggestions(entities, inventory, validation, argName, c
     suggestions.sort((a, b) => a.displayName.localeCompare(b.displayName));
     
     return suggestions;
+}
+
+/**
+ * Generate autocomplete suggestions for string/value arguments (like directions)
+ */
+export function getValueSuggestions(entities, inventory, validation, argName, currentArgs = {}, inputText = '') {
+    // Extract the validation rules for this specific argument
+    const argValidation = validation?.[argName];
+    
+    if (!argValidation || !argValidation.relationValues) {
+        // No relation validation, return empty suggestions
+        return [];
+    }
+    
+    const validValues = getValidRelationValues(entities, inventory, argName, argValidation, currentArgs);
+    const lowerInput = inputText.toLowerCase();
+    
+    // Filter and sort suggestions based on input
+    return validValues
+        .filter(value => value.toLowerCase().includes(lowerInput))
+        .map(value => ({
+            value: value,
+            displayName: value,
+            eid: null // Not an entity
+        }))
+        .sort((a, b) => {
+            // Prioritize exact matches and prefix matches
+            const aLower = a.value.toLowerCase();
+            const bLower = b.value.toLowerCase();
+            
+            if (aLower === lowerInput) return -1;
+            if (bLower === lowerInput) return 1;
+            if (aLower.startsWith(lowerInput)) return -1;
+            if (bLower.startsWith(lowerInput)) return 1;
+            
+            return aLower.localeCompare(bLower);
+        });
 }
 
 /**

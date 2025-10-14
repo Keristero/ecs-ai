@@ -2,7 +2,7 @@
  * Dynamic autocomplete system for enhanced actions with entity validation
  */
 
-import { getEntitySuggestions, parseActionInput, getEntityIdByName } from './entity_helpers.mjs';
+import { getEntitySuggestions, getValueSuggestions, parseActionInput, getEntityIdByName } from './entity_helpers.mjs';
 
 export class AutocompleteSystem {
     constructor(elements, state) {
@@ -151,6 +151,12 @@ export class AutocompleteSystem {
         
         // Build current arguments for validation context
         const currentArgs = { actor_eid: this.state.player_eid };
+        
+        // Add room_eid if the action includes actor room
+        if (action.options?.includeActorRoom) {
+            currentArgs.room_eid = this.state.current_room_eid;
+        }
+        
         for (let i = 0; i < currentArgIndex; i++) {
             if (i < argNames.length) {
                 const argName = argNames[i];
@@ -196,8 +202,38 @@ export class AutocompleteSystem {
             }));
         }
         
-        // For non-entity arguments, we could add more suggestion types here
-        // For now, return empty array
+        // Check if this argument has relationValues validation (for string arguments like direction)
+        const argValidation = action.options?.entityValidation?.[currentArgName];
+        if (currentArgName && argValidation && argValidation.relationValues) {
+            
+            // This is a string argument with relation value validation
+            const inventory = this.state.room[this.state.player_eid]?.Has || {};
+            
+            // For room-based relation validation, we need to pass room_data directly
+            const entitiesForValidation = { ...this.state.room };
+            if (this.state.current_room_eid && this.state.room_data) {
+                entitiesForValidation[this.state.current_room_eid] = this.state.room_data;
+            }
+            
+            const valueSuggestions = getValueSuggestions(
+                entitiesForValidation,
+                inventory,
+                action.options?.entityValidation,
+                currentArgName,
+                currentArgs,
+                currentInput
+            );
+            
+            return valueSuggestions.map(suggestion => ({
+                type: 'value',
+                value: suggestion.value,
+                displayName: suggestion.displayName,
+                description: `Direction: ${suggestion.value}`,
+                eid: null
+            }));
+        }
+        
+        // For other non-entity arguments, return empty array
         return [];
     }
     

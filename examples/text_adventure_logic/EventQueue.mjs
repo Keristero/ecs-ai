@@ -16,10 +16,12 @@ export const EVENT_NAMES = {
     IDENTIFY_PLAYER: 'identify_player',
     ROOM_UPDATE: 'room_update',
     INVENTORY_UPDATE: 'inventory_update',
+    MOVEMENT_UPDATE: 'movement_update',
     // Action events
     LOOK: 'look',
     PICKUP: 'pickup', 
     DROP: 'drop',
+    MOVE: 'move',
 }
 
 //zod schema for event
