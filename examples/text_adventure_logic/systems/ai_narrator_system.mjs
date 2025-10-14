@@ -1,13 +1,13 @@
 import { hasComponent } from 'bitecs'
 import System from '../System.mjs'
-import { create_event } from '../EventQueue.mjs'
+import { create_event, EVENT_TYPES } from '../EventQueue.mjs'
 
 const ai_narrator_system = new System('ai_narrator_system', 15) // Low priority - run after other systems
 ai_narrator_system.event_whitelist = null // Watch for all events
 
 ai_narrator_system.func = async function ({ game, event }) {
     // Only process successful action events by players
-    if (event.type !== 'action' || !event.details?.success) {
+    if (event.type !== EVENT_TYPES.ACTION || !event.details?.success) {
         return null
     }
 
@@ -30,7 +30,7 @@ Give a short narration of what transpired in one sentence:"`
             return create_event(
                 'ai_narrative',
                 narrative.trim(),
-                'system',
+                EVENT_TYPES.SYSTEM,
                 {
                     actor_eid,
                     source_event: event.name

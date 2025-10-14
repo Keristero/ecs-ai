@@ -22,7 +22,10 @@ export const event_type_config = {
     'action': {
         debug_log: false,
         handle(event) {
-            let res = generic_config_handler(event,action_event_config,'name');
+            //let res = generic_config_handler(event,action_event_config,'name');
+            let res = event_response({
+                print_style: 'info'
+            })
             let is_own_action = event.details.actor_eid === state.player_eid
             if(is_own_action){
                 res.print = true
@@ -63,7 +66,7 @@ export const system_event_config = {
             })
         }
     },
-    'look_result':{
+    'room_update':{
         handle(event){
             // Only update state if this involves the current player
             if(event.details.actor_eid === state.player_eid){
@@ -83,26 +86,6 @@ export const system_event_config = {
 }
 
 export const action_event_config = {
-    'look':{
-        handle(event){
-            // Look actions just print the message - state updates handled by look_result system
-            return event_response({
-                print_style: 'info'
-            })
-        }
-    },
-    'pickup':{
-        handle(event){
-            // Only respond to the current player's actions
-            if(event.details.actor_eid === state.player_eid){
-                return event_response({
-                    print: true,
-                    print_style: event.details.success ? 'success' : 'error'
-                })
-            }
-            return event_response({})
-        }
-    }
 }
 
 // Configuration for entity categories based on components

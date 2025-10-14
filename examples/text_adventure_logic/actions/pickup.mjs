@@ -1,8 +1,6 @@
-import { query, getComponent, hasComponent, addComponent, removeComponent, set, getRelationTargets } from 'bitecs'
-import { z } from 'zod'
+import { getComponent } from 'bitecs'
 
 import { Action, action_argument_schemas } from '../Action.mjs'
-import { get_components_for_entity, get_all_components_and_relations } from '../helpers.mjs'
 
 const pickup = new Action('pickup', ['take', 'get'], 'Pick up an item from the room', {
     target_eid: action_argument_schemas.target_eid
@@ -23,23 +21,25 @@ pickup.func = async (game, args) => {
     const { actor_eid, room_eid, target_eid } = args
     const { world } = game
     const { Name } = world.components
-    const { Has } = world.relations
 
-    // Get item display name
+    console.log(`[pickup action] Executing for actor ${actor_eid}, target ${target_eid}, room ${room_eid}`)
+
+    // Get item display name for message
     const itemName = getComponent(world, target_eid, Name)
     const item_display_name = itemName ? itemName.value : `Item ${target_eid}`
 
-    // Transfer the item: remove from room, add to actor
-    // (Validation already ensures the item is in the room and has Item component)
-    removeComponent(world, room_eid, Has(target_eid))
-    addComponent(world, actor_eid, Has(target_eid))
+    console.log(`[pickup action] Item display name: ${item_display_name}`)
 
-    return pickup.create_event(actor_eid, `You pick up the ${item_display_name}.`, {
+    // Note: Actual inventory transfer is handled by inventory_system
+    const event = pickup.create_event(actor_eid, `You pick up the ${item_display_name}.`, {
         success: true,
         item_name: item_display_name,
-        target_item: target_eid,
+        target_eid: target_eid,
         room_eid
     })
+    
+    console.log(`[pickup action] Created event:`, event)
+    return event
 }
 
 export { pickup }

@@ -1,12 +1,12 @@
-import { EVENT_NAMES, create_event } from '../EventQueue.mjs'
+import { EVENT_NAMES, EVENT_TYPES, create_event } from '../EventQueue.mjs'
 import System from '../System.mjs'
 import { get_all_components_and_relations, get_relation_data_for_entity } from '../helpers.mjs'
 import { getRelationTargets, getComponent } from 'bitecs'
 
-const look_result_system = new System('look_result_system', 100) // Run after other systems
-look_result_system.event_whitelist = ['look', 'pickup', 'drop'] // Listen to specific action events
+const room_update_system = new System('room_update_system', 100) // Run after other systems
+room_update_system.event_whitelist = [EVENT_NAMES.LOOK, EVENT_NAMES.PICKUP, EVENT_NAMES.DROP] // Listen to actions that change room state
 
-look_result_system.func = async ({ game, event }) => {
+room_update_system.func = async ({ game, event }) => {
     // Only process successful actions (whitelist already filters event names)
     if (!event.details.success) {
         return null
@@ -19,7 +19,7 @@ look_result_system.func = async ({ game, event }) => {
 
     // Get current room state - all entities in the room
     let entitiesInRoom = getRelationTargets(world, room_eid, Has)
-    console.log(`[look_result_system] Room ${room_eid} contains entities:`, entitiesInRoom)
+    console.log(`[room_update_system] Room ${room_eid} contains entities:`, entitiesInRoom)
     let current_entities = {}
     
     // Process entities currently in the room (only physical room entities)
@@ -34,11 +34,11 @@ look_result_system.func = async ({ game, event }) => {
         }
     }
 
-    // Create look_result event with current state
+    // Create room_update event with current state
     return create_event(
-        'look_result',
+        EVENT_NAMES.ROOM_UPDATE,
         'Room state updated',
-        'system',
+        EVENT_TYPES.SYSTEM,
         {
             room_eid,
             actor_eid,
@@ -48,4 +48,4 @@ look_result_system.func = async ({ game, event }) => {
     )
 }
 
-export { look_result_system }
+export { room_update_system }

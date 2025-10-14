@@ -1,4 +1,4 @@
-import { create_event } from './EventQueue.mjs'
+import { create_event, EVENT_TYPES } from './EventQueue.mjs'
 import { z } from 'zod'
 import { query } from 'bitecs'
 
@@ -147,7 +147,7 @@ export class Action {
         }
     }
     create_event(actor_eid, message, more_details = {}) {
-        const event = create_event(this.name, message, "action", {
+        const event = create_event(this.name, message, EVENT_TYPES.ACTION, {
             actor_eid,
             success: true, // Default to success
             ...more_details

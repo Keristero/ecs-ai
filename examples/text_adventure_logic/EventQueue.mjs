@@ -4,13 +4,22 @@ import Logger from '../../logger.mjs'
 const logger = new Logger('EventQueue', 'yellow')
 import { z } from 'zod'
 
+export const EVENT_TYPES = {
+    ACTION: 'action',
+    SYSTEM: 'system'
+}
+
 export const EVENT_NAMES = {
+    // System events
     GAME_START: 'game_start',
     ACTOR_TURN_CHANGE: 'actor_turn_change',
-    ACTION: 'action',
     IDENTIFY_PLAYER: 'identify_player',
+    ROOM_UPDATE: 'room_update',
+    INVENTORY_UPDATE: 'inventory_update',
+    // Action events
     LOOK: 'look',
-    PICKUP_ITEM: 'pickup',
+    PICKUP: 'pickup', 
+    DROP: 'drop',
 }
 
 //zod schema for event

@@ -77,10 +77,16 @@ player_system.func = async function ({ game, event }) {
                         if(action) {
                             logger.info(`Executing action: ${deserialized.name}`);
                             let res = await action.execute(game, deserialized.args)
-                            this.player_action = res
                             
-                            // Don't send action result directly - it's already broadcast via EventQueue
-                            // The WebSocketManager broadcasts all events to all clients
+                            // Queue the action result so other systems can process it
+                            if (res) {
+                                await game.event_queue.queue(res)
+                            }
+                            
+                            // Only set player_action if the action was successful
+                            if (res && res.details && res.details.success) {
+                                this.player_action = res
+                            }
                         } else {
                             logger.error(`Action not found: ${deserialized.name}`);
                         }
@@ -115,6 +121,7 @@ player_system.func = async function ({ game, event }) {
         while(this.player_action == null){
             await sleep(200)
         }
+        return this.player_action
     }
 }
 
