@@ -24,11 +24,23 @@ function setup_world(game) {
     addComponent(world, room3, set(Description, {value: "Crumbling stone structures covered in moss."}))
     
     // Create connections between rooms using ConnectsTo relation
-    // Now we can use the clean set() syntax!
-    addComponent(world, room1, set(ConnectsTo(room2), {direction: "north"}))
-    addComponent(world, room2, set(ConnectsTo(room1), {direction: "south"}))
-    addComponent(world, room2, set(ConnectsTo(room3), {direction: "east"}))
-    addComponent(world, room3, set(ConnectsTo(room2), {direction: "west"}))
+    // Now we can use the clean set() syntax with direction and description!
+    addComponent(world, room1, set(ConnectsTo(room2), {
+        direction: "north", 
+        description: "Glowing Red Portal"
+    }))
+    addComponent(world, room2, set(ConnectsTo(room1), {
+        direction: "south", 
+        description: "Glowing Red Portal"
+    }))
+    addComponent(world, room2, set(ConnectsTo(room3), {
+        direction: "east", 
+        description: "Down a waterslide"
+    }))
+    addComponent(world, room3, set(ConnectsTo(room2), {
+        direction: "west", 
+        description: "Up the waterslide"
+    }))
     
     // Create landmarks
     const landmark1 = addEntity(world)

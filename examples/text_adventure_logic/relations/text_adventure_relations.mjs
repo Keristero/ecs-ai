@@ -11,7 +11,8 @@ let Has = CreateRelation({})
 
 // ConnectsTo has additional data - the direction of the connection
 let ConnectsTo = CreateRelation({},z.object({
-    direction: z.string()
+    direction: z.string(),
+    description: z.string()
 }))
 
 export {

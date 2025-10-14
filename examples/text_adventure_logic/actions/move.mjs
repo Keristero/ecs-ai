@@ -32,22 +32,28 @@ move.func = async (game, args) => {
     const actor_display_name = actorName ? actorName.value : `Actor ${actor_eid}`
     const roomRelations = get_relation_data_for_entity(world, room_eid, ['ConnectsTo'])
     let target_room_eid = null
+    let connectionDescription = null
         
     if (roomRelations.ConnectsTo) {
         for (const [roomId, connectionData] of Object.entries(roomRelations.ConnectsTo)) {
             if (connectionData.direction === direction.toLowerCase()) {
                 target_room_eid = parseInt(roomId)
+                connectionDescription = connectionData.description
                 break
             }
         }
     }
 
+    // Create descriptive movement message
+    let moveMessage = `${actor_display_name} moves ${direction}`
+
     // Note: Actual movement is handled by movement_system
-    return move.create_event(actor_eid, `${actor_display_name} moves ${direction}.`, {
+    return move.create_event(actor_eid, moveMessage, {
         success: true,
         direction: direction,
         from_room_eid: room_eid,
-        to_room_eid: target_room_eid
+        to_room_eid: target_room_eid,
+        connection_description: connectionDescription
     })
 }
 

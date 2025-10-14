@@ -17,7 +17,7 @@ movement_system.func = async ({ game, event }) => {
     const { world } = game
     const { Name } = world.components
     const { Has } = world.relations
-    const { actor_eid, from_room_eid, to_room_eid, direction } = event.details
+    const { actor_eid, from_room_eid, to_room_eid, direction, connection_description } = event.details
 
     // Get actor display name for messaging
     const actorName = getComponent(world, actor_eid, Name)
@@ -27,16 +27,20 @@ movement_system.func = async ({ game, event }) => {
     removeComponent(world, from_room_eid, Has(actor_eid))
     addComponent(world, to_room_eid, Has(actor_eid))
 
+    // Create descriptive completion message
+    let completionMessage = `Movement completed: ${actor_display_name} moved ${direction}`
+    
     // Return movement completion event
     return create_event(
         EVENT_NAMES.MOVEMENT_UPDATE,
-        `Movement completed: ${actor_display_name} moved ${direction}`,
+        completionMessage,
         EVENT_TYPES.SYSTEM,
         {
             actor_eid,
             from_room_eid,
             to_room_eid,
             direction,
+            connection_description,
             success: true
         }
     )
