@@ -63,6 +63,21 @@ const refresh_functions = {
     room_content: (state) => {
         elements.room_content.innerHTML = '';
         
+        // Display Room Connections/Exits
+        if (state.room_data && state.room_data.ConnectsTo) {
+            const connections = state.room_data.ConnectsTo;
+            if (Object.keys(connections).length > 0) {
+                const exitHeader = createElement('div', { className: 'category-name' }, 'Exits:');
+                elements.room_content.appendChild(exitHeader);
+                
+                const exitElements = Object.entries(connections).map(([targetRoomId, connectionData]) => {
+                    const direction = connectionData.direction || 'unknown';
+                    return createElement('div', {}, `- ${direction}`);
+                });
+                appendChildren(elements.room_content, exitElements);
+            }
+        }
+        
         // Display Enemies
         let enemies = core.filter_and_format_entities(state.room, ['Name','Enemy'], 'value');
         if(Object.keys(enemies).length > 0){

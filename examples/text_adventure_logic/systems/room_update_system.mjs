@@ -17,24 +17,10 @@ room_update_system.func = async ({ game, event }) => {
     const { Has } = world.relations
     const { room_eid, actor_eid } = event.details
 
-    // Get current room state - all entities in the room
-    let entitiesInRoom = getRelationTargets(world, room_eid, Has)
-    console.log(`[room_update_system] Room ${room_eid} contains entities:`, entitiesInRoom)
-    let current_entities = {}
+    // Get room information including all entities and connections
+    const roomData = get_all_components_and_relations(world, room_eid, 3)
     
-    // Process entities currently in the room (only physical room entities)
-    for(let eid of entitiesInRoom){
-        try {
-            if(getComponent(world, eid, Name)){
-                const entityData = get_all_components_and_relations(world, eid, 2)
-                current_entities[eid] = entityData
-            }
-        } catch (error) {
-            console.log(`Entity ${eid} no longer exists, skipping from room entities`)
-        }
-    }
-
-    // Create room_update event with current state
+    // Create room_update event with complete room state
     return create_event(
         EVENT_NAMES.ROOM_UPDATE,
         'Room state updated',
@@ -42,7 +28,7 @@ room_update_system.func = async ({ game, event }) => {
         {
             room_eid,
             actor_eid,
-            entities: current_entities,
+            room_data: roomData,
             triggered_by: event.name
         }
     )

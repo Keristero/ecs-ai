@@ -70,9 +70,12 @@ export const system_event_config = {
         handle(event){
             // Only update state if this involves the current player
             if(event.details.actor_eid === state.player_eid){
-                // Use room state as single source of truth
-                state.room = event.details.entities;
-                console.log('Updated state.room:', state.room);
+                // Use room_data as single source of truth
+                state.room_data = event.details.room_data;
+                // Extract entities from room_data.Has for compatibility
+                state.room = event.details.room_data.Has || {};
+                console.log('Updated state.room_data:', state.room_data);
+                console.log('Updated state.room (from Has):', state.room);
                 
                 return event_response({
                     print: true,
@@ -161,6 +164,7 @@ export const statusBarConfig = [
 // Client state
 export const state = {
     room: {},
+    room_data: {},
     actions: {},
     player_eid: null,
 };
