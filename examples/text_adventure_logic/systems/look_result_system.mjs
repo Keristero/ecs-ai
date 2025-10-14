@@ -19,42 +19,21 @@ look_result_system.func = async ({ game, event }) => {
 
     // Get current room state - all entities in the room
     let entitiesInRoom = getRelationTargets(world, room_eid, Has)
+    console.log(`[look_result_system] Room ${room_eid} contains entities:`, entitiesInRoom)
     let current_entities = {}
     let allReferencedEntities = new Set()
     
-    // Process entities currently in the room
+    // Process entities currently in the room (only physical room entities)
     for(let eid of entitiesInRoom){
         try {
             if(getComponent(world, eid, Name)){
                 const entityData = get_all_components_and_relations(world, eid)
-                entityData.relations = get_relation_data_for_entity(world, eid)
+                // Use depth=2 to include complete data for related entities within relations
+                entityData.relations = get_relation_data_for_entity(world, eid, [], 2)
                 current_entities[eid] = entityData
-                
-                // Track this entity and all entities it has relations to
-                allReferencedEntities.add(eid)
-                if(entityData.relations){
-                    for(let relationName in entityData.relations){
-                        for(let relatedEid in entityData.relations[relationName]){
-                            allReferencedEntities.add(parseInt(relatedEid))
-                        }
-                    }
-                }
             }
         } catch (error) {
             console.log(`Entity ${eid} no longer exists, skipping from room entities`)
-        }
-    }
-    
-    // Get component data for all referenced entities (including inventory items)
-    for(let eid of allReferencedEntities){
-        if(!current_entities[eid]){
-            try {
-                const entityData = get_all_components_and_relations(world, eid)
-                entityData.relations = get_relation_data_for_entity(world, eid)
-                current_entities[eid] = entityData
-            } catch (error) {
-                console.log(`Entity ${eid} no longer exists, skipping from referenced entities`)
-            }
         }
     }
 

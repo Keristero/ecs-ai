@@ -20,12 +20,13 @@ export const event_type_config = {
         }
     },
     'action': {
-        debug_log: true,
+        debug_log: false,
         handle(event) {
             let res = generic_config_handler(event,action_event_config,'name');
             let is_own_action = event.details.actor_eid === state.player_eid
             if(is_own_action){
                 res.print = true
+                res.debug_log = true
             }
             if(res.details && event.details.success === false){
                 res.print_style = 'error'
@@ -69,7 +70,7 @@ export const system_event_config = {
                 // Clear existing entities first to avoid showing entities from other rooms
                 state.entities = {}
                 
-                // Add entities from the current room
+                // Add all room entities (server now only sends actual room entities)
                 console.log('Look result event - updating entities:', event.details.entities);
                 for(let eid in event.details.entities){
                     state.entities[eid] = event.details.entities[eid]
@@ -82,12 +83,11 @@ export const system_event_config = {
                     state.inventory = {};
                     console.log('Updating inventory from player Has relations:', playerEntity.relations.Has);
                     
-                    // Add each item the player has to inventory state
+                    // Player's Has relations now contain complete entity data (depth=2)
                     for (let itemEid in playerEntity.relations.Has) {
-                        // Find the item in the entities data
-                        if (event.details.entities[itemEid]) {
-                            state.inventory[itemEid] = event.details.entities[itemEid];
-                        }
+                        const itemData = playerEntity.relations.Has[itemEid];
+                        // The item data is now embedded in the relation (thanks to depth=2)
+                        state.inventory[itemEid] = itemData;
                     }
                     console.log('Updated inventory state:', state.inventory);
                 }
