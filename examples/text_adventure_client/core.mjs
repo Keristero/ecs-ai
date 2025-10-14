@@ -95,7 +95,7 @@ export const system_event_config = {
                 return event_response({
                     print: true,
                     print_style: 'info',
-                    refresh_ui_sections:['room_content', 'inventory']
+                    refresh_ui_sections: ['room_content', 'inventory', 'status']
                 })
             }
             // Don't refresh UI for other players' look results
@@ -135,11 +135,66 @@ export const entityCategories = [
     { name: 'Exits', componentKey: 'exit' }
 ];
 
-// Configuration for status bars
+// Configuration for status bars - supports different display types and colors
 export const statusBarConfig = [
-    { component: 'health', label: 'Health', className: 'health' },
-    { component: 'mana', label: 'Mana', className: 'mana' },
-    { component: 'stamina', label: 'Stamina', className: 'stamina' }
+    // Bar-type components (with max/current values)
+    { 
+        component: 'Hitpoints', 
+        label: 'Health', 
+        className: 'hitpoints',
+        displayType: 'bar',
+        color: '#e74c3c',
+        fields: ['current', 'max']
+    },
+    { 
+        component: 'mana', 
+        label: 'Mana', 
+        className: 'mana',
+        displayType: 'bar',
+        color: '#3498db',
+        fields: ['current', 'max']
+    },
+    { 
+        component: 'stamina', 
+        label: 'Stamina', 
+        className: 'stamina',
+        displayType: 'bar',
+        color: '#f39c12',
+        fields: ['current', 'max']
+    },
+    // Number-type components (individual numeric values)
+    { 
+        component: 'Attributes', 
+        label: 'Strength', 
+        className: 'strength',
+        displayType: 'number',
+        color: '#c0392b',
+        field: 'strength'
+    },
+    { 
+        component: 'Attributes', 
+        label: 'Dexterity', 
+        className: 'dexterity',
+        displayType: 'number',
+        color: '#27ae60',
+        field: 'dexterity'
+    },
+    { 
+        component: 'Attributes', 
+        label: 'Intelligence', 
+        className: 'intelligence',
+        displayType: 'number',
+        color: '#8e44ad',
+        field: 'intelligence'
+    },
+    { 
+        component: 'Actor', 
+        label: 'Initiative', 
+        className: 'initiative',
+        displayType: 'number',
+        color: '#16a085',
+        field: 'initiative'
+    }
 ];
 
 // Client state
@@ -285,4 +340,44 @@ export const get_inventory_items = function(){
 
 export const get_inventory_item_names = function(){
     return filter_and_format_entities(state.inventory, ['Name'], 'value');
+}
+
+// Status helper functions
+export const get_player_status = function(){
+    const playerEntity = state.entities[state.player_eid];
+    if (!playerEntity) return {};
+    
+    const status = [];
+    
+    // Build status data using the enhanced declarative statusBarConfig
+    for (const statusConfig of statusBarConfig) {
+        const componentData = playerEntity[statusConfig.component];
+        if (componentData) {
+            let statusItem = {
+                label: statusConfig.label,
+                className: statusConfig.className,
+                displayType: statusConfig.displayType,
+                color: statusConfig.color
+            };
+            
+            if (statusConfig.displayType === 'bar' && statusConfig.fields) {
+                // Bar display: extract current and max values
+                const [currentField, maxField] = statusConfig.fields;
+                if (componentData[currentField] !== undefined && componentData[maxField] !== undefined) {
+                    statusItem.current = componentData[currentField];
+                    statusItem.max = componentData[maxField];
+                    statusItem.percentage = Math.round((statusItem.current / statusItem.max) * 100);
+                    status.push(statusItem);
+                }
+            } else if (statusConfig.displayType === 'number' && statusConfig.field) {
+                // Number display: extract single field value
+                if (componentData[statusConfig.field] !== undefined) {
+                    statusItem.value = componentData[statusConfig.field];
+                    status.push(statusItem);
+                }
+            }
+        }
+    }
+    
+    return status;
 }

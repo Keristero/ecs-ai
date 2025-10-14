@@ -5,6 +5,51 @@ import entityHelpers from './entity_helpers.mjs';
 // Make entity helpers available globally for core.mjs
 window.entityHelpers = entityHelpers;
 
+// Functional HTML composition utilities
+const createElement = (tagName, attributes = {}, children = []) => {
+    const element = document.createElement(tagName);
+    
+    // Set attributes
+    for (const [key, value] of Object.entries(attributes)) {
+        if (key === 'className') {
+            element.className = value;
+        } else if (key === 'style') {
+            element.style.cssText = value;
+        } else {
+            element.setAttribute(key, value);
+        }
+    }
+    
+    // Add children (can be string, element, or array of elements)
+    if (typeof children === 'string') {
+        element.textContent = children;
+    } else if (children instanceof HTMLElement) {
+        element.appendChild(children);
+    } else if (Array.isArray(children)) {
+        children.forEach(child => {
+            if (typeof child === 'string') {
+                element.appendChild(document.createTextNode(child));
+            } else if (child instanceof HTMLElement) {
+                element.appendChild(child);
+            }
+        });
+    }
+    
+    return element;
+};
+
+const appendChildren = (parent, children) => {
+    if (Array.isArray(children)) {
+        children.forEach(child => {
+            if (child instanceof HTMLElement) {
+                parent.appendChild(child);
+            }
+        });
+    } else if (children instanceof HTMLElement) {
+        parent.appendChild(children);
+    }
+};
+
 const elements = {
     log: document.getElementById('log'),
     terminal_input: document.getElementById('terminal-input'),
@@ -21,31 +66,25 @@ const refresh_functions = {
         // Display Enemies
         let enemies = core.filter_and_format_entities(state.entities, ['Name','Enemy'], 'value');
         if(Object.keys(enemies).length > 0){
-            let enemyHeader = document.createElement('div');
-            enemyHeader.className = 'category-name';
-            enemyHeader.textContent = 'Enemies:';
+            const enemyHeader = createElement('div', { className: 'category-name' }, 'Enemies:');
             elements.room_content.appendChild(enemyHeader);
             
-            for(let eid in enemies){
-                let div = document.createElement('div');
-                div.textContent = `- ${enemies[eid]}`;
-                elements.room_content.appendChild(div);
-            }
+            const enemyItems = Object.values(enemies).map(name => 
+                createElement('div', {}, `- ${name}`)
+            );
+            appendChildren(elements.room_content, enemyItems);
         }
         
         // Display Items
         let items = core.filter_and_format_entities(state.entities, ['Name','Item'], 'value');
         if(Object.keys(items).length > 0){
-            let itemHeader = document.createElement('div');
-            itemHeader.className = 'category-name';
-            itemHeader.textContent = 'Items:';
+            const itemHeader = createElement('div', { className: 'category-name' }, 'Items:');
             elements.room_content.appendChild(itemHeader);
             
-            for(let eid in items){
-                let div = document.createElement('div');
-                div.textContent = `- ${items[eid]}`;
-                elements.room_content.appendChild(div);
-            }
+            const itemElements = Object.values(items).map(name =>
+                createElement('div', {}, `- ${name}`)
+            );
+            appendChildren(elements.room_content, itemElements);
         }
     },
     inventory: (state) => {
@@ -60,21 +99,66 @@ const refresh_functions = {
         // Display inventory items
         let items = core.filter_and_format_entities(state.inventory, ['Name','Item'], 'value');
         if(Object.keys(items).length > 0){
-            let inventoryHeader = document.createElement('div');
-            inventoryHeader.className = 'category-name';
-            inventoryHeader.textContent = 'Inventory:';
+            const inventoryHeader = createElement('div', { className: 'category-name' }, 'Inventory:');
             elements.inventory_content.appendChild(inventoryHeader);
             
-            for(let eid in items){
-                let div = document.createElement('div');
-                div.textContent = `- ${items[eid]}`;
-                elements.inventory_content.appendChild(div);
-            }
+            const itemElements = Object.values(items).map(name =>
+                createElement('div', {}, `- ${name}`)
+            );
+            appendChildren(elements.inventory_content, itemElements);
         } else {
-            let emptyDiv = document.createElement('div');
-            emptyDiv.textContent = 'Inventory is empty';
-            emptyDiv.className = 'empty-message';
+            const emptyDiv = createElement('div', { className: 'empty-message' }, 'Inventory is empty');
             elements.inventory_content.appendChild(emptyDiv);
+        }
+    },
+    status: (state) => {
+        // Check if status element exists, if not skip
+        if (!elements.status_content) {
+            console.log('No status UI element found - status update skipped');
+            return;
+        }
+        
+        elements.status_content.innerHTML = '';
+        
+        // Get player status using the declarative helper
+        const statusItems = core.get_player_status();
+        
+        if (statusItems.length > 0) {
+            const statusHeader = createElement('div', { className: 'category-name' }, 'Status:');
+            elements.status_content.appendChild(statusHeader);
+            
+            const statusElements = statusItems.map(statusItem => {
+                if (statusItem.displayType === 'bar') {
+                    // Create progress bar display using functional HTML composition
+                    const label = createElement('div', { className: 'stat-label' }, statusItem.label);
+                    
+                    const barFill = createElement('div', {
+                        className: `bar-fill ${statusItem.className}`,
+                        style: `width: ${statusItem.percentage}%`
+                    });
+                    
+                    const barText = createElement('div', { className: 'bar-text' }, `${statusItem.current}/${statusItem.max}`);
+                    
+                    const barContainer = createElement('div', { className: 'bar-container' }, [barFill, barText]);
+                    
+                    return createElement('div', { className: `stat-bar ${statusItem.className}` }, [label, barContainer]);
+                } else if (statusItem.displayType === 'number') {
+                    // Create number display using functional HTML composition
+                    const label = createElement('div', { className: 'status-label' }, `${statusItem.label}:`);
+                    
+                    const value = createElement('div', {
+                        className: 'status-value',
+                        style: `color: ${statusItem.color}`
+                    }, statusItem.value.toString());
+                    
+                    return createElement('div', { className: `status-item ${statusItem.className}` }, [label, value]);
+                }
+            });
+            
+            appendChildren(elements.status_content, statusElements);
+        } else {
+            const emptyDiv = createElement('div', { className: 'empty-message' }, 'No status data available');
+            elements.status_content.appendChild(emptyDiv);
         }
     }
 }
