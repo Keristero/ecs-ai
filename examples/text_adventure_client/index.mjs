@@ -64,7 +64,7 @@ const refresh_functions = {
         elements.room_content.innerHTML = '';
         
         // Display Enemies
-        let enemies = core.filter_and_format_entities(state.entities, ['Name','Enemy'], 'value');
+        let enemies = core.filter_and_format_entities(state.room, ['Name','Enemy'], 'value');
         if(Object.keys(enemies).length > 0){
             const enemyHeader = createElement('div', { className: 'category-name' }, 'Enemies:');
             elements.room_content.appendChild(enemyHeader);
@@ -75,13 +75,22 @@ const refresh_functions = {
             appendChildren(elements.room_content, enemyItems);
         }
         
-        // Display Items
-        let items = core.filter_and_format_entities(state.entities, ['Name','Item'], 'value');
-        if(Object.keys(items).length > 0){
+        // Display Items (exclude items in player's inventory)
+        let allItems = core.filter_entities_by_component(state.room, ['Name','Item']);
+        let inventory = core.get_related_entities(['room', state.player_eid, 'Has']);
+        let roomItems = {};
+        for (let eid in allItems) {
+            // Only show items that are NOT in the player's inventory
+            if (!inventory[eid]) {
+                roomItems[eid] = allItems[eid].Name.value;
+            }
+        }
+        
+        if(Object.keys(roomItems).length > 0){
             const itemHeader = createElement('div', { className: 'category-name' }, 'Items:');
             elements.room_content.appendChild(itemHeader);
             
-            const itemElements = Object.values(items).map(name =>
+            const itemElements = Object.values(roomItems).map(name =>
                 createElement('div', {}, `- ${name}`)
             );
             appendChildren(elements.room_content, itemElements);
@@ -96,8 +105,9 @@ const refresh_functions = {
         
         elements.inventory_content.innerHTML = '';
         
-        // Display inventory items
-        let items = core.filter_and_format_entities(state.inventory, ['Name','Item'], 'value');
+        // Display inventory items using traversal function
+        let inventory = core.get_related_entities(['room', state.player_eid, 'Has']);
+        let items = core.filter_and_format_entities(inventory, ['Name','Item'], 'value');
         if(Object.keys(items).length > 0){
             const inventoryHeader = createElement('div', { className: 'category-name' }, 'Inventory:');
             elements.inventory_content.appendChild(inventoryHeader);

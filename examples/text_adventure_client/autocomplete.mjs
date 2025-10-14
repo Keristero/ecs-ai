@@ -162,7 +162,7 @@ export class AutocompleteSystem {
                     if (!isNaN(numericValue)) {
                         currentArgs[argName] = numericValue;
                     } else {
-                        const entityId = getEntityIdByName(this.state.entities, argValue);
+                        const entityId = getEntityIdByName(this.state.room, argValue);
                         if (entityId !== null) {
                             currentArgs[argName] = entityId;
                         }
@@ -177,9 +177,10 @@ export class AutocompleteSystem {
         if (currentArgName && currentArgName.endsWith('_eid') && currentArgName !== 'actor_eid' && currentArgName !== 'room_eid') {
             
             // This is an entity argument, get entity suggestions
+            const inventory = this.state.room[this.state.player_eid]?.Has || {};
             const entitySuggestions = getEntitySuggestions(
-                this.state.entities,
-                this.state.inventory,
+                this.state.room,
+                inventory,
                 action.options?.entityValidation,
                 currentArgName,
                 currentArgs,

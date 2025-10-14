@@ -67,37 +67,9 @@ export const system_event_config = {
         handle(event){
             // Only update state if this involves the current player
             if(event.details.actor_eid === state.player_eid){
-                // Clear existing entities first to avoid showing entities from other rooms
-                state.entities = {}
-                
-                // Add all room entities (server now only sends actual room entities)
-                console.log('Look result event - updating entities:', event.details.entities);
-                for(let eid in event.details.entities){
-                    state.entities[eid] = event.details.entities[eid]
-                }
-                console.log('Updated state.entities:', state.entities);
-                 
-                // Update player inventory from the player entity's Has relations
-                const playerEntity = event.details.entities[state.player_eid];
-                if (playerEntity) {
-                    // Always clear inventory first, then rebuild from current Has relations
-                    state.inventory = {};
-                    
-                    // Check for Has relation directly on the entity (flattened structure)
-                    if (playerEntity.Has) {
-                        console.log('Updating inventory from player Has relations:', playerEntity.Has);
-                        
-                        // Player's Has relations now contain complete entity data (depth=2)
-                        for (let itemEid in playerEntity.Has) {
-                            const itemData = playerEntity.Has[itemEid];
-                            // The item data is now embedded in the relation (thanks to depth=2)
-                            state.inventory[itemEid] = itemData;
-                        }
-                    } else {
-                        console.log('Player has no Has relations - inventory cleared');
-                    }
-                    console.log('Updated inventory state:', state.inventory);
-                }
+                // Use room state as single source of truth
+                state.room = event.details.entities;
+                console.log('Updated state.room:', state.room);
                 
                 return event_response({
                     print: true,
@@ -105,7 +77,6 @@ export const system_event_config = {
                     refresh_ui_sections: ['room_content', 'inventory', 'status']
                 })
             }
-            // Don't refresh UI for other players' look results
             return event_response({})
         }
     }
@@ -206,11 +177,23 @@ export const statusBarConfig = [
 
 // Client state
 export const state = {
-    entities: {},
+    room: {},
     actions: {},
     player_eid: null,
-    inventory: {}, // Track player's inventory items
 };
+
+// Simple function to traverse state tree to find related entities
+export const get_related_entities = function(keyPath) {
+    let current = state;
+    for (const key of keyPath) {
+        if (current && typeof current === 'object' && key in current) {
+            current = current[key];
+        } else {
+            return {};
+        }
+    }
+    return current || {};
+}
 
 function event_response(args){
     let defaults = {
@@ -282,7 +265,8 @@ export const handle_command = (command) => {
         return null;
     }
     
-    const parsed = parseActionInput(command, action, state.entities, state.inventory);
+    const inventory = get_related_entities(['room', state.player_eid, 'Has']);
+    const parsed = parseActionInput(command, action, state.room, inventory);
     if (!parsed) {
         console.log('Failed to parse action arguments');
         return null;
@@ -342,16 +326,18 @@ export const filter_and_format_entities = function(entities, componentKeys, comp
 
 // Inventory helper functions
 export const get_inventory_items = function(){
-    return filter_entities_by_component(state.inventory, ['Item']);
+    const inventory = get_related_entities(['room', state.player_eid, 'Has']);
+    return filter_entities_by_component(inventory, ['Item']);
 }
 
 export const get_inventory_item_names = function(){
-    return filter_and_format_entities(state.inventory, ['Name'], 'value');
+    const inventory = get_related_entities(['room', state.player_eid, 'Has']);
+    return filter_and_format_entities(inventory, ['Name'], 'value');
 }
 
 // Status helper functions
 export const get_player_status = function(){
-    const playerEntity = state.entities[state.player_eid];
+    const playerEntity = state.room[state.player_eid];
     if (!playerEntity) return {};
     
     const status = [];
