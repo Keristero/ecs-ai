@@ -1,21 +1,25 @@
-# ECS AI - Multi-Agent AI Playground
+# ECS AI
 
 ## Overview
 
-**ECS AI** is an end-to-end playground for driving Entity Component System (ECS) games through the Model Context Protocol (MCP). Built with Node.js, it demonstrates how AI agents can interact with structured game worlds using modern protocol interfaces.
+**ECS AI** is an experiment by me to see how well I can get an AI agent to understand and maniupulate a simulated world when it is given a well defined framework for interaction.
 
-**What makes this unique:** Instead of traditional game engines, this project uses BitECS for performance and MCP for AI integration, creating a playground where AI agents can understand, query, and modify game state through well-defined protocols.
+**What makes this unique:** Many games have tried using AI to generate narratives, but usually this narrative is based on the existing context of an ongoing converstaion and devolves quickly (see aidungeon) for this project I wanted to provide all the required context every time I use the AI, this hopefully prevents major hallucinations and keeps things closer to the ground truth of what is happening in the simulation.
+
+I also want to experiment with modifying the game world using AI behind the scenes, interfacing it with systems to augment things like:
+- NPC behaviour
+- Procedural generation
+- Balance decisions
 
 - **[System Architecture](docs/architecture.md)** - Understand the three-layer design
 - **[Game Logic Patterns](examples/text-adventure/game-logic.md)** - Server-side implementation
 - **[Game Logic Patterns](examples/text-adventure/client.md)** - Server-side implementation
 
-## 🚀 Quick Start (15 minutes)
+## 🚀 Quick Start
 
 ### Prerequisites
 - **[mise](https://mise.jdx.dev/)** for toolchain management  
-- **Node.js** (installed automatically via `mise install`)
-- **Ollama 0.9.6+** (installed automatically via `mise install`)
+- activate mise in your chosen terminal emulator, check its status with `mise doctor`
 
 ### Launch the Complete System
 
@@ -35,17 +39,13 @@
    mise start                  # Boots ECS game + MCP server + HTTP API
    ```
 
+4. **Host the client html** (Terminal 2):
+   I like to use the live server extension to open `examples/text_adventure_client/index.html`
+
 4. **Verify the system**:
    - **HTTP API**: `http://localhost:6060/health` 
    - **MCP Server**: `http://localhost:6061/mcp`
-   - **Game Client**: Open `examples/text_adventure_client/index.html`
-
-**What's running:**
-- **ECS Game World**: Text adventure with AI-driven NPCs
-- **MCP Server**: AI agents can query and modify game state
-- **HTTP API**: REST interface for tools and agent prompting
-- **WebSocket Server**: Real-time client communication
-- **Ollama Agent**: AI backend for dynamic content generation
+   - **Game Client**: `examples/text_adventure_client/index.html`
 
 ## Core Technology Stack
 
@@ -54,7 +54,6 @@
 - **BitECS** - High-performance Entity Component System
 - **Express.js** - HTTP API server  
 - **MCP SDK** - Model Context Protocol integration
-- **WebSocket (ws)** - Real-time client communication
 
 **Development Tools:**
 - **mise** - Toolchain and environment management
@@ -62,30 +61,8 @@
 - **Zod** - Runtime type validation for all APIs
 - **nodemon** - Development file watching and reloading
 
-## System Architecture Overview
-
-### Three-Layer Design
-
-**1. Game Framework Layer** (`game_framework/`)
-- **Purpose**: Universal patterns for any ECS game
-- **Components**: Zod-validated entity components with type safety
-- **Systems**: Declarative system registration and lifecycle management
-- **Tools**: Automatic MCP tool generation from component definitions
-- **Example**: `createComponent()` patterns work for RPG, RTS, or puzzle games
-
-**2. Protocol Layer** (`api/`, `mcp_server/`)  
-- **Purpose**: Communication interfaces for external systems
-- **HTTP API**: REST endpoints auto-generated from MCP tool definitions
-- **MCP Server**: AI agent integration with structured tool access
-- **WebSocket**: Real-time client communication (game-specific)
-- **Example**: AI agents can query entities, modify components, execute actions
-
-**3. Game Logic Layer** (`examples/text_adventure_logic/`)
-- **Purpose**: Game-specific implementations and mechanics
-- **Systems**: Turn-based combat, inventory management, room navigation
-- **Actions**: Player commands like move, pickup, attack, look
-- **WebSocket Manager**: Client connection and real-time event handling
-- **Example**: Different games implement different systems and actions
+**Text Adventure Example**
+- **WebSocket (ws)** - Real-time client communication
 
 ### Data Flow
 
@@ -94,8 +71,6 @@ AI Agent (via MCP) ←→ Game Framework ←→ ECS World ←→ Game Logic ←�
                                      ↕
                                HTTP API ←→ External Tools
 ```
-
-**Key Insight**: The framework provides universal patterns while game logic implements specific mechanics. This means you can build completely different game types using the same framework foundation.
 
 ## Environment Configuration
 
@@ -109,8 +84,6 @@ All configuration lives in `environment.mjs` with environment variable overrides
 | `API_HOST` / `API_PORT` | HTTP API bind address | `0.0.0.0:6060` |
 | `OLLAMA_HOST` | Ollama service location | `127.0.0.1:6062` |
 | `OLLAMA_MODEL_NAME` | AI model for agent prompting | `qwen3` |
-
-**Deployment Note**: Custom deployments only need to override variables that differ from defaults. The API automatically derives `DEFAULT_MCP_URL` and `DEFAULT_OLLAMA_BASE_URL` for easy configuration.
 
 ## API Overview
 
@@ -137,8 +110,8 @@ All configuration lives in `environment.mjs` with environment variable overrides
 
 ```json
 {
-  "prompt": "Add a magical sword to the current room and describe its properties.",
-  "context": ["The player is exploring an ancient dungeon."],
+  "prompt": "Add a magical sword to the reward room",
+  "context":, //other context would be here
   "toolsWhitelist": ["addEntity", "addComponent", "addComponentWithValues"],
   "options": { "temperature": 0.7 }
 }
@@ -169,17 +142,10 @@ ecs-ai/
 │   ├── api.test.mjs           # HTTP API validation tests
 │   └── ecs_interface.test.mjs  # MCP tool integration tests
 └── docs/                        # Consolidated documentation
-    ├── architecture.md         # System design and data flow
-    ├── framework/              # Framework patterns and tool generation
-    ├── api/                    # HTTP and MCP API references
-    ├── examples/               # Implementation guides and walkthroughs
-    └── development/            # Setup, testing, and deployment guides
+    └── architecture.md         # System design and data flow
 ```
 
 ## Testing Strategy
-
-**Comprehensive Coverage**: 100+ tests across framework, API, and client code
-
 ```bash
 # Run all tests
 mise run test             # or: pnpm test
@@ -187,13 +153,11 @@ mise run test             # or: pnpm test
 # Run specific test suites  
 npm run test:client        # Browser client logic and UI interactions
 npm run test:framework     # Core ECS functionality and patterns
-npm run test:api          # HTTP endpoints and validation
+npm run test:api           # HTTP endpoints and validation
 ```
 
 **Test Categories**:
 - **Framework Tests**: ECS functionality, game initialization, system integration
 - **Interface Tests**: MCP tool definitions and ECS interface validation
 - **API Tests**: HTTP endpoints, request validation, error handling  
-- **Client Tests**: Browser logic, command parsing, UI interactions (35 tests)
-
-**TDD Approach**: Tests validate documentation quality, user journey completion, and structural consistency rather than just unit coverage.
+- **Client Tests**: Browser logic, command parsing, UI interactions
