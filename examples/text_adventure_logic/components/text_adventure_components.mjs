@@ -25,19 +25,6 @@ let Room = CreateComponent()
 let Item = CreateComponent()
 let Landmark = CreateComponent()
 
-
-let Ears = CreateComponent(z.object({ // Entities with this component can hear dialogue
-    health: z.number().nonnegative().max(1)
-}))
-
-let Eyes = CreateComponent(z.object({ // Entities with this component can see, and inspect
-    health: z.number().nonnegative().max(1)
-}))
-
-let Hands = CreateComponent(z.object({ // Entities with this component can use items
-    health: z.number().nonnegative().max(1)
-}))
-
 let Player = CreateComponent(z.object({
     respawnRoom: z.number().int().nonnegative() // entity id of room to respawn in
 }))
@@ -53,6 +40,14 @@ let Actor = CreateComponent(z.object({
     initiative: z.number().int().nonnegative()
 }))
 
+let Level = CreateComponent(z.object({
+    max: z.number().int().positive(),
+    current: z.number().int().nonnegative(),
+    current_experience: z.number().int().nonnegative(),
+    experience_threshhold: z.number().int().positive(),
+    threshhold_adjustment: z.number().min(1)
+}))
+
 export {
     Hitpoints,
     Name,
@@ -62,10 +57,8 @@ export {
     Room,
     Item,
     Landmark,
-    Ears,
-    Eyes,
-    Hands,
     Player,
     Usable,
-    Actor
+    Actor,
+    Level
 }

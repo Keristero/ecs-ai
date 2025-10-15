@@ -5,7 +5,7 @@ import {addPrefab, addComponent, addEntity, set, IsA} from 'bitecs'
  * A stronger undead enemy found in ancient ruins
  */
 export default function create_skeleton_warrior_prefab(world, prefabs) {
-    const {Enemy, Actor, Hitpoints, Name, Description, Ears, Eyes, Hands, Attributes} = world.components
+    const {Enemy, Actor, Hitpoints, Name, Description, Attributes} = world.components
     
     const SkeletonWarrior = addPrefab(world)
     addComponent(world, SkeletonWarrior, Enemy)
@@ -21,8 +21,6 @@ export default function create_skeleton_warrior_prefab(world, prefabs) {
         dexterity: 6,
         intelligence: 1
     }))
-    addComponent(world, SkeletonWarrior, set(Eyes, {health: 0.2}))
-    addComponent(world, SkeletonWarrior, set(Hands, {health: 0.2}))
     addComponent(world, SkeletonWarrior, set(Name, {value: "SkeletonWarrior"}))
     addComponent(world, SkeletonWarrior, set(Description, {value: "An animated skeleton"}))
     

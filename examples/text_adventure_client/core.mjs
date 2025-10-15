@@ -54,8 +54,9 @@ export const system_event_config = {
     },
     'identify_player':{
         handle(event){
-            console.log(`Our player eid is ${event.details.eid}`);
-            state.player_eid = event.details.eid
+            console.log(`Our player eid is ${event.details.actor_eid}`);
+            state.player_eid = event.details.actor_eid
+            state.room_eid = event.details.room_eid
         }
     },
     'ai_narrative':{
@@ -69,7 +70,7 @@ export const system_event_config = {
     'room_update':{
         handle(event){
             // Only update state if this involves the current player
-            if(event.details.actor_eid === state.player_eid){
+            if(event.details.room_eid === state.room_eid || event.details.actor_eid === state.player_eid){
                 // Use room_data as single source of truth
                 state.room_data = event.details.room_data;
                 // Extract entities from room_data.Has for compatibility
@@ -92,7 +93,6 @@ export const system_event_config = {
     'movement_update': {
         debug_log: true,
         handle(event) {
-            // Movement update is just informational, no UI changes needed
             return event_response({
                 print: true,
                 print_style: 'info'
@@ -122,6 +122,14 @@ export const statusBarConfig = [
         displayType: 'bar',
         color: '#e74c3c',
         fields: ['current', 'max']
+    },
+    { 
+        component: 'Level', 
+        label: 'Experience', 
+        className: 'experience',
+        displayType: 'bar',
+        color: '#e7b93cff',
+        fields: ['current_experience', 'experience_threshhold']
     },
     { 
         component: 'mana', 

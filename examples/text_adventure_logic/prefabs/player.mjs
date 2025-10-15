@@ -5,7 +5,7 @@ import {addPrefab, addComponent, set} from 'bitecs'
  * Note: respawnRoom will be set when spawning the player
  */
 export default function create_player_prefab(world, prefabs) {
-    const {Player, Actor, Name, Description, Hitpoints, Attributes, Ears, Eyes, Hands} = world.components
+    const {Player, Actor, Name, Description, Hitpoints, Attributes, Level} = world.components
     
     const Self = addPrefab(world)
     addComponent(world, Self, set(Player, {
@@ -25,11 +25,13 @@ export default function create_player_prefab(world, prefabs) {
         dexterity: 10,
         intelligence: 10
     }))
-    
-    // Sensory and physical components (fully healthy)
-    addComponent(world, Self, set(Ears, {health: 1.0}))
-    addComponent(world, Self, set(Eyes, {health: 1.0}))
-    addComponent(world, Self, set(Hands, {health: 1.0}))
+    addComponent(world, Self, set(Level, {
+        max: 999,
+        current: 1,
+        current_experience: 0,
+        experience_threshhold: 10,
+        threshhold_adjustment: 1.12
+    }))
     
     return Self
 }

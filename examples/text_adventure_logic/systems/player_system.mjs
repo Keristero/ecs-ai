@@ -48,7 +48,7 @@ player_system.spawn_player = function(game, client = null) {
         this.player_eids.set(client, new_player)
     }
     
-    return new_player
+    return {player_eid:new_player, room_eid:starting_room}
 }
 
 player_system.func = async function ({ game, event }) {
@@ -61,11 +61,13 @@ player_system.func = async function ({ game, event }) {
             logger.info("New player connected");
             
             // Use the streamlined spawn_player function
-            const new_player = this.spawn_player(game, client)
+            const {player_eid,room_eid} = this.spawn_player(game, client)
             
             // Send player identification event
-            let event = this.create_event(EVENT_NAMES.IDENTIFY_PLAYER, `Player entity ${new_player} has joined the game`, {eid: new_player})
-            client.send(JSON.stringify(event))
+            let event = this.create_event(EVENT_NAMES.IDENTIFY_PLAYER, `Player entity ${player_eid} has joined the game`, {actor_eid:player_eid,room_eid:room_eid})
+            game.event_queue.queue(event)
+            // Manually queue the event
+            //client.send(JSON.stringify(event))
 
             client.on('message', async (data) => {
                 let deserialized = JSON.parse(data)
