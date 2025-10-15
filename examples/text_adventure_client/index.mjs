@@ -123,13 +123,16 @@ const refresh_functions = {
         // Display inventory items using traversal function
         let inventory = core.get_related_entities(['room', state.player_eid, 'Has']);
         let items = core.filter_and_format_entities(inventory, ['Name','Item'], 'value');
+        let equipped = core.get_equipped_items();
+        
         if(Object.keys(items).length > 0){
             const inventoryHeader = createElement('div', { className: 'category-name' }, 'Inventory:');
             elements.inventory_content.appendChild(inventoryHeader);
             
-            const itemElements = Object.values(items).map(name =>
-                createElement('div', {}, `- ${name}`)
-            );
+            const itemElements = Object.entries(items).map(([eid, name]) => {
+                const isEquipped = equipped[eid];
+                return createElement('div', { className: isEquipped ? 'item equipped-item' : 'item'}, `- ${name}`);
+            });
             appendChildren(elements.inventory_content, itemElements);
         } else {
             const emptyDiv = createElement('div', { className: 'empty-message' }, 'Inventory is empty');

@@ -1,9 +1,9 @@
 import { hasComponent } from 'bitecs'
 import System from '../System.mjs'
-import { create_event, EVENT_TYPES } from '../EventQueue.mjs'
+import { create_event, EVENT_NAMES, EVENT_TYPES } from '../EventQueue.mjs'
 
 const ai_narrator_system = new System('ai_narrator_system', 15) // Low priority - run after other systems
-ai_narrator_system.event_whitelist = null // Watch for all events
+ai_narrator_system.event_whitelist = [EVENT_NAMES.LOOK,EVENT_NAMES.PICKUP,EVENT_NAMES.EQUIP] // Watch for all events
 
 ai_narrator_system.func = async function ({ game, event }) {
     // Only process successful action events by players

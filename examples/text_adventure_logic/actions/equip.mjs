@@ -2,7 +2,7 @@ import { getComponent } from 'bitecs'
 
 import { Action, action_argument_schemas } from '../Action.mjs'
 
-const pickup = new Action('pickup', ['take', 'get'], 'Pick up an item from the room', {
+const equip = new Action('equip', [], 'Equip and item to use for combat', {
     target_eid: action_argument_schemas.target_eid
 }, { 
     includeActorRoom: true,
@@ -11,13 +11,13 @@ const pickup = new Action('pickup', ['take', 'get'], 'Pick up an item from the r
             components: ['Item'],
             isTargetOf: [{
                 relation: 'Has',
-                source: 'room_eid'
+                source: 'actor_eid'
             }]
         }
     }
 })
 
-pickup.func = async (game, args) => {
+equip.func = async (game, args) => {
     const { actor_eid, room_eid, target_eid } = args
     const { world } = game
     const { Name } = world.components
@@ -27,14 +27,14 @@ pickup.func = async (game, args) => {
     const item_display_name = itemName ? itemName.value : `Item ${target_eid}`
 
     // Note: Actual inventory transfer is handled by inventory_system
-    const event = pickup.create_event(actor_eid, `You pick up the ${item_display_name}.`, {
+    const event = equip.create_event(actor_eid, `You equip the ${item_display_name}.`, {
         success: true,
         item_name: item_display_name,
         target_eid: target_eid,
         room_eid
     })
-
+    
     return event
 }
 
-export { pickup }
+export { equip }

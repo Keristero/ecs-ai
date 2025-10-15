@@ -22,6 +22,8 @@ export const EVENT_NAMES = {
     PICKUP: 'pickup', 
     DROP: 'drop',
     MOVE: 'move',
+    EQUIP: 'equip',
+    UNEQUIP: 'unequip'
 }
 
 //zod schema for event

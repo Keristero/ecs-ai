@@ -1,9 +1,9 @@
 import { EVENT_NAMES, EVENT_TYPES, create_event } from '../EventQueue.mjs'
 import System from '../System.mjs'
-import { addComponent, removeComponent, getComponent } from 'bitecs'
+import { addComponent, removeComponent, getComponent, hasComponent } from 'bitecs'
 
 const inventory_system = new System('inventory_system', 50) // Run before room_update_system
-inventory_system.event_whitelist = [EVENT_NAMES.PICKUP, EVENT_NAMES.DROP] // Listen to inventory action events
+inventory_system.event_whitelist = [EVENT_NAMES.PICKUP, EVENT_NAMES.DROP, EVENT_NAMES.EQUIP, EVENT_NAMES.UNEQUIP] // Listen to inventory action events
 
 inventory_system.func = async ({ game, event }) => {
     console.log(`[inventory_system] Received event: ${event.name}, type: ${event.type}`)
@@ -16,7 +16,7 @@ inventory_system.func = async ({ game, event }) => {
 
     const { world } = game
     const { Name } = world.components
-    const { Has } = world.relations
+    const { Has, Equipped } = world.relations
     const { room_eid, actor_eid, target_eid } = event.details
 
     // Get item display name for messaging
@@ -34,8 +34,22 @@ inventory_system.func = async ({ game, event }) => {
         // Transfer item from actor to room
         removeComponent(world, actor_eid, Has(target_eid))
         addComponent(world, room_eid, Has(target_eid))
+
+        if(hasComponent(world,actor_eid, Equipped(target_eid))){
+            removeComponent(world, actor_eid, Equipped(target_eid))
+        }
         
         console.log(`[inventory_system] ${actor_eid} dropped ${item_display_name} (${target_eid}) in room ${room_eid}`)
+    } else if (event.name === EVENT_NAMES.EQUIP) {
+        // Equip item (for simplicity, just add an "Equipped" relation)
+        addComponent(world, actor_eid, Equipped(target_eid))
+        
+        console.log(`[inventory_system] ${actor_eid} equipped ${item_display_name} (${target_eid})`)
+    } else if (event.name === EVENT_NAMES.UNEQUIP) {
+        // Unequip item (remove the "Equipped" relation)
+        removeComponent(world, actor_eid, Equipped(target_eid))
+        
+        console.log(`[inventory_system] ${actor_eid} unequipped ${item_display_name} (${target_eid})`)
     }
 
     // Return success confirmation event

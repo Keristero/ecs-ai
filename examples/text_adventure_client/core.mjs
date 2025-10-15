@@ -344,6 +344,15 @@ export const get_inventory_item_names = function(){
     return filter_and_format_entities(inventory, ['Name'], 'value');
 }
 
+export const get_equipped_items = function(){
+    // Use the same pattern as inventory - traverse the relation using get_related_entities
+    const equipped = get_related_entities(['room', state.player_eid, 'Equipped']);
+    console.log('Equipped items debug:', equipped);
+    console.log('Player EID:', state.player_eid);
+    console.log('Room data:', state.room);
+    return equipped;
+}
+
 // Status helper functions
 export const get_player_status = function(){
     const playerEntity = state.room[state.player_eid];

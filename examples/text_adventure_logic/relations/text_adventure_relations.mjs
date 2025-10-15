@@ -15,7 +15,10 @@ let ConnectsTo = CreateRelation({},z.object({
     description: z.string()
 }))
 
+let Equipped = CreateRelation({})
+
 export {
     Has,
-    ConnectsTo
+    ConnectsTo,
+    Equipped
 }

@@ -4,7 +4,7 @@ import { get_all_components_and_relations, get_relation_data_for_entity } from '
 import { getRelationTargets, getComponent } from 'bitecs'
 
 const room_update_system = new System('room_update_system', 100) // Run after other systems
-room_update_system.event_whitelist = [EVENT_NAMES.LOOK, EVENT_NAMES.PICKUP, EVENT_NAMES.DROP, EVENT_NAMES.MOVE, EVENT_NAMES.IDENTIFY_PLAYER] // Listen to actions that change room state
+room_update_system.event_whitelist = [EVENT_NAMES.LOOK, EVENT_NAMES.PICKUP, EVENT_NAMES.DROP, EVENT_NAMES.MOVE, EVENT_NAMES.IDENTIFY_PLAYER, EVENT_NAMES.INVENTORY_UPDATE] // Listen to actions that change room state
 
 room_update_system.func = async ({ game, event }) => {
     // Handle different event structures

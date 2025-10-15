@@ -2,6 +2,7 @@
 node = "latest"
 pnpm = "latest"
 ollama = "0.9.6"
+"npm:@fission-ai/openspec" = "latest"
 
 [env]
 GAME_LOGIC_FOLDER_PATH = "./examples/text_adventure_logic"
