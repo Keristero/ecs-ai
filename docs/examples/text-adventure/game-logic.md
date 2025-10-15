@@ -1,16 +1,3 @@
----
-title: "Text Adventure Game Logic"
-description: "Server-side game logic implementation patterns and guide"
-audience: "existing-developers"
-last_updated: "2025-10-15"
-version: "1.0.0"
-category: "examples"
-cross_references:
-  - "README.md"
-  - "client.md"
-  - "integration.md"
----
-
 # Text Adventure Game Logic
 
 ## Overview
@@ -418,14 +405,3 @@ describe('WebSocket Integration', () => {
 - Optimize component data structures for memory usage
 
 This game logic implementation demonstrates how to build a complete RPG system using ECS patterns while maintaining clean separation of concerns and supporting real-time multiplayer gameplay through WebSocket communication.
-
-## See Also
-
-- [Text Adventure Overview](README.md)
-- [Client Implementation](client.md)
-- [Integration Guide](integration.md)
-
----
-
-*Generated from ecs-ai project documentation consolidation*
-*Last updated: 2025-10-15*

@@ -1,16 +1,3 @@
----
-title: "System Architecture"
-description: "Comprehensive system architecture documentation for ECS AI"
-audience: "new-developers|existing-developers"
-last_updated: "2025-10-15"
-version: "1.0.0"
-category: "overview"
-cross_references:
-  - "README.md"
-  - "framework/README.md"
-  - "api/README.md"
----
-
 # System Architecture
 
 ## Overview
@@ -319,15 +306,3 @@ Automatic Schema Validation
 - Event tracing for debugging system interactions
 - Performance monitoring for ECS operations
 - Health checks for all services
-
-## See Also
-
-- [Project Overview](README.md) - High-level introduction and quick start
-- [Framework Documentation](framework/README.md) - ECS patterns and helpers
-- [API Documentation](api/README.md) - Protocol integration details
-- [Text Adventure Example](examples/text-adventure/README.md) - Complete implementation
-
----
-
-*Generated from ecs-ai project documentation consolidation*  
-*Last updated: 2025-10-15*

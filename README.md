@@ -1,18 +1,3 @@
----
-title: "ECS AI - Multi-Agent AI Playground"
-description: "Main entry point for ECS AI project documentation"
-audience: "new-developers"
-last_updated: "2025-10-15"
-version: "1.0.0"
-category: "overview"
-cross_references:
-  - "architecture.md"
-  - "framework/README.md"
-  - "api/README.md"
-  - "examples/text-adventure/README.md"
-  - "development/setup.md"
----
-
 # ECS AI - Multi-Agent AI Playground
 
 ## Overview

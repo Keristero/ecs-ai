@@ -1,16 +1,3 @@
----
-title: "Text Adventure Client Implementation"
-description: "Complete guide to the text adventure client implementation"
-audience: "existing-developers"
-last_updated: "2025-10-15"
-version: "1.0.0"
-category: "examples"
-cross_references:
-  - "README.md"
-  - "game-logic.md"
-  - "integration.md"
----
-
 # Text Adventure Client Implementation
 
 ## Overview
@@ -274,10 +261,3 @@ const handle_server_event = (event) => {
 - **WebSocket API**: Real-time bidirectional communication
 - **DOM API**: Functional HTML composition and manipulation
 - **Local Storage**: Could be extended for client-side preferences
-
-This client demonstrates how to build a responsive, real-time game interface that effectively communicates with an ECS-based game server while maintaining clean functional programming principles and an engaging retro user experience.
-
----
-
-*Generated from ecs-ai project documentation consolidation*
-*Last updated: 2025-10-15*
